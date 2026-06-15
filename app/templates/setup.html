@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Credential Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 flex items-center justify-center">
+    <div class="max-w-xl w-full bg-white shadow rounded-lg p-8">
+        <header class="mb-6 border-b pb-4">
+            <h1 class="text-2xl font-bold text-gray-900">Portal Setup</h1>
+            <p class="text-sm text-gray-600">Configure your encrypted database connections.</p>
+        </header>
+
+        <form id="setup-form" class="space-y-4">
+            <div>
+                <h3 class="font-medium text-lg border-b pb-2 mb-4">LiteLLM</h3>
+                <label class="block text-sm font-medium text-gray-700">LiteLLM API URL</label>
+                <input type="text" id="litellm_url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" placeholder="http://litellm:4000" value="http://litellm:4000" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">LiteLLM Master Key</label>
+                <input type="password" id="litellm_key" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" required>
+            </div>
+
+            <div class="pt-4">
+                <h3 class="font-medium text-lg border-b pb-2 mb-4">Vaultwarden</h3>
+                <label class="block text-sm font-medium text-gray-700">Vaultwarden URL</label>
+                <input type="text" id="vw_url" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" placeholder="https://vault.domain.com" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Client ID (API Key)</label>
+                <input type="text" id="vw_client_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Client Secret (API Key)</label>
+                <input type="password" id="vw_client_secret" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Master Password (Required for bw login)</label>
+                <input type="password" id="vw_password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" required>
+            </div>
+
+            <div class="pt-6">
+                <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">Save & Encrypt</button>
+            </div>
+            <div id="setup-result" class="mt-4 hidden"></div>
+        </form>
+    </div>
+    
+    <script>
+        document.getElementById('setup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('setup-result');
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<p class="text-blue-500">Saving configurations and initializing Bitwarden session...</p>';
+
+            const data = {
+                litellm_url: document.getElementById('litellm_url').value,
+                litellm_key: document.getElementById('litellm_key').value,
+                vw_url: document.getElementById('vw_url').value,
+                vw_client_id: document.getElementById('vw_client_id').value,
+                vw_client_secret: document.getElementById('vw_client_secret').value,
+                vw_password: document.getElementById('vw_password').value
+            };
+
+            try {
+                const response = await fetch('/api/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Setup failed');
+
+                resultDiv.innerHTML = '<p class="text-green-600 font-medium">Setup complete! Redirecting...</p>';
+                setTimeout(() => window.location.href = '/', 1000);
+            } catch (err) {
+                resultDiv.innerHTML = `<p class="text-red-600 font-medium">Error: ${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

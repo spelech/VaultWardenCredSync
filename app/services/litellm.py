@@ -1,16 +1,16 @@
-import os
 import httpx
-
-LITELLM_API_URL = os.getenv("LITELLM_API_URL", "http://litellm:4000")
-LITELLM_MASTER_KEY = os.getenv("LITELLM_MASTER_KEY", "")
+from app.database import get_secret
 
 async def generate_virtual_key(key_alias: str, models: list = None):
     """Generates a virtual key in LiteLLM."""
-    if not LITELLM_MASTER_KEY:
-        raise Exception("LITELLM_MASTER_KEY environment variable is not set")
+    litellm_api_url = get_secret("LITELLM_API_URL")
+    litellm_master_key = get_secret("LITELLM_MASTER_KEY")
+    
+    if not litellm_master_key or not litellm_api_url:
+        raise Exception("LiteLLM is not configured properly in setup.")
 
     headers = {
-        "Authorization": f"Bearer {LITELLM_MASTER_KEY}",
+        "Authorization": f"Bearer {litellm_master_key}",
         "Content-Type": "application/json"
     }
     
@@ -19,9 +19,8 @@ async def generate_virtual_key(key_alias: str, models: list = None):
         payload["models"] = models
 
     async with httpx.AsyncClient() as client:
-        # LiteLLM endpoint to generate keys
         response = await client.post(
-            f"{LITELLM_API_URL}/key/generate",
+            f"{litellm_api_url}/key/generate",
             headers=headers,
             json=payload,
             timeout=10.0
