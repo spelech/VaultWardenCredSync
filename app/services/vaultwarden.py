@@ -43,6 +43,57 @@ def run_bw_command(cmd_list, env=None):
         raise Exception(f"bw command failed: {result.stderr}")
     return result.stdout
 
+def get_folders():
+    """Fetch all folders from Vaultwarden."""
+    env = get_vw_env()
+    if not env.get("BW_SESSION"):
+        return []
+    
+    # Run sync to ensure latest folders
+    subprocess.run(["bw", "sync"], env=env, capture_output=True)
+    
+    folders_str = run_bw_command(["list", "folders"], env=env)
+    return json.loads(folders_str)
+
+def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id: str = None):
+    """Creates a native SSH Key item (type 5) in Vaultwarden."""
+    env = get_vw_env()
+    if not env.get("BW_SESSION"):
+        print(f"Warning: BW_SESSION not set. Simulating Vaultwarden sync for: {name}")
+        return {"simulated": True, "name": name, "status": "success", "type": 5}
+
+    item = {
+        "type": 5,
+        "name": name,
+        "folderId": folder_id,
+        "fields": [],
+        "sshKey": {
+            "privateKey": private_key,
+            "publicKey": public_key
+        }
+    }
+    
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        json.dump(item, f)
+        temp_name = f.name
+        
+    try:
+        with open(temp_name, 'r') as f:
+            encoded_str = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True, check=True).stdout
+            
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
+            f_enc.write(encoded_str)
+            temp_enc_name = f_enc.name
+            
+        try:
+            with open(temp_enc_name, 'r') as f_enc_read:
+                create_result = subprocess.run(["bw", "create", "item"], stdin=f_enc_read, env=env, capture_output=True, text=True, check=True).stdout
+                return json.loads(create_result)
+        finally:
+            os.remove(temp_enc_name)
+    finally:
+        os.remove(temp_name)
+
 def create_secure_login(name: str, username: str = None, fields: List[Dict] = None, folder_id: str = None):
     """Creates a login item in Vaultwarden with custom fields using bw cli."""
     env = get_vw_env()
