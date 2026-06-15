@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credential Portal</title>
+    <!-- Use Tailwind via CDN for MVP scaffolding -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800">
+    <div class="max-w-4xl mx-auto py-10 px-4">
+        <header class="mb-8 border-b pb-4">
+            <h1 class="text-3xl font-bold text-gray-900">Credential Portal</h1>
+            <p class="text-sm text-gray-600">Centralized secure key generation and Vaultwarden sync.</p>
+        </header>
+
+        <main class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Select an Action</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- SSH Tab Trigger -->
+                <div class="border rounded p-4 hover:bg-gray-50 cursor-pointer">
+                    <h3 class="font-medium text-lg">Generate SSH Key</h3>
+                    <p class="text-xs text-gray-500">Create an ed25519 pair and sync to Vaultwarden.</p>
+                </div>
+                
+                <!-- LiteLLM Tab Trigger -->
+                <div class="border rounded p-4 hover:bg-gray-50 cursor-pointer">
+                    <h3 class="font-medium text-lg">Generate LiteLLM Key</h3>
+                    <p class="text-xs text-gray-500">Create a virtual proxy key and sync to Vaultwarden.</p>
+                </div>
+
+                <!-- External Tab Trigger -->
+                <div class="border rounded p-4 hover:bg-gray-50 cursor-pointer">
+                    <h3 class="font-medium text-lg">Store External Creds</h3>
+                    <p class="text-xs text-gray-500">Save GCP JSON, OpenRouter API keys, etc.</p>
+                </div>
+            </div>
+            
+            <div id="content-area" class="mt-8 pt-8 border-t">
+                <!-- Content will load here -->
+                <p class="text-gray-500 italic text-center">Select an action above.</p>
+            </div>
+        </main>
+    </div>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
