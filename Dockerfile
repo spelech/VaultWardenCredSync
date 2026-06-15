@@ -5,7 +5,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client \
     curl \
     jq \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Bitwarden CLI
+RUN npm install -g @bitwarden/cli
 
 WORKDIR /app
 
