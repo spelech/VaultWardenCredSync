@@ -38,8 +38,11 @@
                         <input type="text" id="litellm_url" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="http://litellm:4000" value="http://litellm:4000">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Master Key</label>
-                        <input type="password" id="litellm_key" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Management Key</label>
+                            <button onclick="alert('Optionally generate an Admin Key using:\n\ncurl -X POST http://localhost:4000/user/new \\\n-H \'Authorization: Bearer <MASTER_KEY>\' \\\n-d \'{\"user_role\": \"proxy_admin\"}\'')" class="text-[10px] text-festool hover:underline uppercase">How to get an Admin Key? ↗</button>
+                        </div>
+                        <input type="password" id="litellm_key" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="sk-...">
                     </div>
                     <button onclick="testLiteLLM()" class="text-xs font-bold text-festool hover:underline uppercase tracking-widest">Validate LiteLLM Connection</button>
                 </div>
@@ -53,12 +56,17 @@
                 </div>
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Vault URL</label>
-                        <input type="text" id="vw_url" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="https://vault.domain.com">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Vault URL</label>
+                        </div>
+                        <input type="text" id="vw_url" oninput="updateVaultLink()" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="https://vault.domain.com">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Client ID</label>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Client ID</label>
+                                <a id="vw-key-link" href="#" target="_blank" class="text-[10px] text-festool hover:underline uppercase hidden">Find Keys ↗</a>
+                            </div>
                             <input type="text" id="vw_client_id" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition">
                         </div>
                         <div>
@@ -75,7 +83,7 @@
                 </div>
             </section>
 
-            <div id="setup-result" class="mt-4 p-4 rounded-lg hidden text-sm font-medium"></div>
+            <div id="setup-result" class="mt-4 p-4 rounded-lg hidden text-sm font-medium border border-transparent"></div>
 
             <div class="pt-8">
                 <button id="next-btn" onclick="showStep2()" class="w-full bg-festool text-white font-bold px-4 py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
@@ -114,13 +122,25 @@
     <script>
         let setupData = {};
 
+        function updateVaultLink() {
+            const url = document.getElementById('vw_url').value;
+            const link = document.getElementById('vw-key-link');
+            if (url && url.startsWith('http')) {
+                const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+                link.href = `${cleanUrl}/#/settings/security/keys`;
+                link.classList.remove('hidden');
+            } else {
+                link.classList.add('hidden');
+            }
+        }
+
         function showResult(msg, type = 'info') {
             const div = document.getElementById('setup-result');
-            div.classList.remove('hidden', 'bg-blue-900/30', 'text-blue-400', 'bg-green-900/30', 'text-green-400', 'bg-red-900/30', 'text-red-400');
+            div.classList.remove('hidden', 'bg-blue-900/30', 'text-blue-400', 'border-blue-500/30', 'bg-green-900/30', 'text-green-400', 'border-green-500/30', 'bg-red-900/30', 'text-red-400', 'border-red-500/30');
             
-            if (type === 'info') div.classList.add('bg-blue-900/30', 'text-blue-400');
-            if (type === 'success') div.classList.add('bg-green-900/30', 'text-green-400');
-            if (type === 'error') div.classList.add('bg-red-900/30', 'text-red-400');
+            if (type === 'info') div.classList.add('bg-blue-900/30', 'text-blue-400', 'border-blue-500/30');
+            if (type === 'success') div.classList.add('bg-green-900/30', 'text-green-400', 'border-green-500/30');
+            if (type === 'error') div.classList.add('bg-red-900/30', 'text-red-400', 'border-red-500/30');
             
             div.innerHTML = msg;
         }
@@ -168,7 +188,6 @@
                 showResult('✅ Vaultwarden verified. Folders loaded.', 'success');
                 setupData = { vw_url, vw_client_id, vw_client_secret, vw_password };
                 
-                // Populate dropdowns
                 const folders = data.folders || [];
                 const optionsHtml = '<option value="">-- No Folder (Root) --</option>' + 
                     folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
