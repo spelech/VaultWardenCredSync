@@ -6,7 +6,7 @@ from cryptography.fernet import Fernet
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "portal.db"
-KEY_PATH = DATA_DIR / "master.key"
+KEY_PATH = DATA_DIR / "portal.key"
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)

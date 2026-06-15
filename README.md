@@ -10,9 +10,9 @@ This portal provides a unified interface to:
 
 ## 🏗️ Architecture
 - **Backend**: FastAPI (Python 3.11).
-- **Security**: Configurations are stored in an **Encrypted SQLite Database** (`data/portal.db`) using AES-256 (Fernet). The encryption key is generated locally on the first run (`data/master.key`).
+- **Security**: Configurations are stored in an **Encrypted SQLite Database** (`data/portal.db`) using AES-256 (Fernet). The encryption key is generated locally on the first run (`data/portal.key`).
 - **Organization**: Automatically routes credentials to specific Vaultwarden folders (mapped during setup).
-- **UI**: Modern, responsive dashboard built with Tailwind CSS.
+- **UI**: High-contrast Dark Mode UI featuring **Festool Green** accents and real-time validation buttons.
 
 ## 🛠️ Setup
 
@@ -29,7 +29,8 @@ docker compose up -d
 1. Navigate to `http://localhost:8111`.
 2. You will be automatically redirected to `/setup`.
 3. Provide your LiteLLM and Vaultwarden API credentials.
-4. Select your preferred folders for auto-organization.
+4. **Validation**: Use the built-in "Validate" buttons to test your keys before saving.
+5. Select your preferred folders for auto-organization.
 
 ## 🧪 Testing
 Run tests using `pytest`:
@@ -38,6 +39,7 @@ docker compose exec credential-portal pytest
 ```
 
 ## 🔒 Security Notes
-- `data/` directory is ignored by Git and contains the local database and master encryption key.
-- Never commit `.env` or `data/master.key`.
+- `data/` directory is ignored by Git and contains the local database and portal encryption key.
+- Never commit `data/portal.key`.
 - Credentials synced to Bitwarden use **Hidden Custom Fields** to prevent accidental plaintext exposure in the UI.
+- **Authentication**: The Bitwarden CLI requires your **Master Password** to locally encrypt/decrypt items. This portal stores that password in the encrypted SQLite database mentioned above.

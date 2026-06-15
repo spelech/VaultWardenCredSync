@@ -1,67 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Credential Portal loaded");
-
-    const contentArea = document.getElementById('content-area');
-    const tabs = document.querySelectorAll('.grid > div');
-
-    const forms = {
-        ssh: `
-            <h3 class="text-lg font-medium mb-4">Generate SSH Keypair</h3>
-            <div class="space-y-4 max-w-md">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Key Name</label>
-                    <input type="text" id="ssh-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" placeholder="e.g. github-action-key">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Comment (Optional)</label>
-                    <input type="text" id="ssh-comment" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" placeholder="user@host">
-                </div>
-                <button onclick="generateSSH()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">Generate & Sync</button>
-            </div>
-            <div id="ssh-result" class="mt-6 hidden"></div>
-        `,
-        litellm: `
-            <h3 class="text-lg font-medium mb-4">Generate LiteLLM Virtual Key</h3>
-            <div class="space-y-4 max-w-md">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Key Alias / Description</label>
-                    <input type="text" id="llm-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" placeholder="e.g. dev-agent-1">
-                </div>
-                <button onclick="generateLiteLLM()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">Generate & Sync</button>
-            </div>
-            <div id="llm-result" class="mt-6 hidden"></div>
-        `,
-        external: `
-            <h3 class="text-lg font-medium mb-4">Store External Credential</h3>
-            <div class="space-y-4 max-w-lg">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Credential Name</label>
-                    <input type="text" id="ext-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" placeholder="e.g. GCP Service Account JSON">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Credential Data (JSON, String, etc)</label>
-                    <textarea id="ext-data" rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 font-mono text-sm"></textarea>
-                </div>
-                <button onclick="storeExternal()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">Sync to Vaultwarden</button>
-            </div>
-            <div id="ext-result" class="mt-6 hidden"></div>
-        `
-    };
-
-    tabs[0].addEventListener('click', () => { contentArea.innerHTML = forms.ssh; setActiveTab(tabs[0]); });
-    tabs[1].addEventListener('click', () => { contentArea.innerHTML = forms.litellm; setActiveTab(tabs[1]); });
-    tabs[2].addEventListener('click', () => { contentArea.innerHTML = forms.external; setActiveTab(tabs[2]); });
-
-    function setActiveTab(activeTab) {
-        tabs.forEach(t => t.classList.remove('ring-2', 'ring-blue-500'));
-        activeTab.classList.add('ring-2', 'ring-blue-500');
-    }
 });
+
+function switchTab(tabId) {
+    // Hide all sections
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
+    // Show selected section
+    document.getElementById(`section-${tabId}`).classList.remove('hidden');
+
+    // Update tab styles
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
+        b.classList.add('text-gray-400');
+    });
+
+    const activeBtn = document.getElementById(`tab-${tabId}`);
+    activeBtn.classList.remove('text-gray-400');
+    activeBtn.classList.add('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
+}
 
 async function makeRequest(url, data, resultElementId) {
     const resultDiv = document.getElementById(resultElementId);
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = '<p class="text-gray-500">Processing...</p>';
+    resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse">⚙️ Processing transaction...</p>';
 
     try {
         const response = await fetch(url, {
@@ -76,19 +37,31 @@ async function makeRequest(url, data, resultElementId) {
             throw new Error(result.detail || 'Request failed');
         }
 
-        let resultHtml = `<div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-            <p class="text-green-700 font-medium">${result.message}</p>
-        </div>`;
+        let resultHtml = `
+            <div class="bg-green-900/20 border border-festool/30 rounded-xl p-6 mt-6">
+                <div class="flex items-center mb-4">
+                    <span class="text-festool text-xl mr-2">✅</span>
+                    <p class="text-white font-bold">${result.message}</p>
+                </div>
+        `;
 
         if (result.keys) {
             resultHtml += `
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700">Public Key</label>
-                    <textarea readonly rows="3" class="mt-1 w-full bg-gray-50 p-2 text-xs font-mono border rounded">${result.keys.public_key}</textarea>
-                </div>
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700">Private Key</label>
-                    <textarea readonly rows="5" class="mt-1 w-full bg-gray-50 p-2 text-xs font-mono border rounded">${result.keys.private_key}</textarea>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Public Key</label>
+                        <div class="relative">
+                            <textarea readonly rows="2" class="w-full bg-[#111827] text-festool p-3 text-xs font-mono border border-gray-700 rounded-lg focus:outline-none">${result.keys.public_key}</textarea>
+                            <button onclick="copyToClipboard(this)" class="absolute top-2 right-2 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Private Key (Hidden in Bitwarden)</label>
+                        <div class="relative">
+                            <textarea readonly rows="4" class="w-full bg-[#111827] text-festool p-3 text-xs font-mono border border-gray-700 rounded-lg focus:outline-none">${result.keys.private_key}</textarea>
+                            <button onclick="copyToClipboard(this)" class="absolute top-2 right-2 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -96,18 +69,40 @@ async function makeRequest(url, data, resultElementId) {
         if (result.key_data) {
             resultHtml += `
                 <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700">Virtual Key</label>
-                    <input type="text" readonly class="mt-1 w-full bg-gray-50 p-2 text-sm font-mono border rounded" value="${result.key_data.key}">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Virtual Key</label>
+                    <div class="relative">
+                        <input type="text" readonly class="w-full bg-[#111827] text-festool p-3 text-sm font-mono border border-gray-700 rounded-lg focus:outline-none" value="${result.key_data.key}">
+                        <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                    </div>
                 </div>
             `;
         }
 
+        resultHtml += `</div>`;
         resultDiv.innerHTML = resultHtml;
     } catch (err) {
-        resultDiv.innerHTML = `<div class="bg-red-50 border-l-4 border-red-500 p-4">
-            <p class="text-red-700 font-medium">Error: ${err.message}</p>
-        </div>`;
+        resultDiv.innerHTML = `
+            <div class="bg-red-900/20 border border-red-500/30 rounded-xl p-6 mt-6">
+                <div class="flex items-center">
+                    <span class="text-red-500 text-xl mr-2">❌</span>
+                    <p class="text-red-400 font-bold">Error: ${err.message}</p>
+                </div>
+            </div>
+        `;
     }
+}
+
+function copyToClipboard(btn) {
+    const el = btn.parentElement.querySelector('textarea, input');
+    el.select();
+    document.execCommand('copy');
+    const oldText = btn.innerText;
+    btn.innerText = 'Copied!';
+    btn.classList.add('text-festool');
+    setTimeout(() => {
+        btn.innerText = oldText;
+        btn.classList.remove('text-festool');
+    }, 2000);
 }
 
 window.generateSSH = () => {
