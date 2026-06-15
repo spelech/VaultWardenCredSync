@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional, List
+import httpx
 
 from app.services.ssh import generate_ssh_keypair
 from app.services.litellm import generate_virtual_key
@@ -37,6 +38,10 @@ class ExternalCredentialRequest(BaseModel):
     name: str
     credential_data: str
 
+class LiteLLMTestRequest(BaseModel):
+    url: str
+    key: str
+
 class LoginTestRequest(BaseModel):
     vw_url: str
     vw_client_id: str
@@ -58,11 +63,11 @@ class SetupRequest(BaseModel):
 @app.middleware("http")
 async def check_setup(request: Request, call_next):
     # Let static files and setup routes pass through
-    if request.url.path.startswith("/static") or request.url.path.startswith("/setup") or request.url.path == "/api/setup":
-        return await call_next(request)
-        
-    if not is_setup_complete():
-        # Redirect API calls vs HTML page loads differently if needed, but a simple redirect to /setup works.
+    allowed_paths = ["/static", "/setup", "/api/setup", "/api/litellm/test", "/api/vaultwarden/login-test"]
+    
+    is_allowed = any(request.url.path.startswith(p) for p in allowed_paths)
+    
+    if not is_allowed and not is_setup_complete():
         if request.url.path.startswith("/api/"):
             return HTMLResponse(content="Setup not complete", status_code=403)
         return RedirectResponse(url="/setup")
@@ -74,6 +79,24 @@ async def get_setup(request: Request):
     if is_setup_complete():
         return RedirectResponse(url="/")
     return templates.TemplateResponse(request=request, name="setup.html")
+
+@app.post("/api/litellm/test")
+async def api_test_litellm(req: LiteLLMTestRequest):
+    try:
+        headers = {"Authorization": f"Bearer {req.key}"}
+        async with httpx.AsyncClient() as client:
+            # Check version or health
+            response = await client.get(f"{req.url}/health/readiness", headers=headers, timeout=5.0)
+            if response.status_code != 200:
+                # Fallback
+                response = await client.get(f"{req.url}/models", headers=headers, timeout=5.0)
+            
+            if response.status_code == 200:
+                return {"status": "success", "message": "LiteLLM connection verified."}
+            else:
+                raise Exception(f"LiteLLM returned status {response.status_code}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/vaultwarden/login-test")
 async def post_login_test(req: LoginTestRequest):
