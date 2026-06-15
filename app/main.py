@@ -115,9 +115,12 @@ async def post_login_test(req: LoginTestRequest):
 @app.post("/api/setup")
 async def post_setup(req: SetupRequest):
     try:
+        print(f"DEBUG: Setup triggered for {req.vw_url}")
+        # Before saving, let's verify we can log into Vaultwarden
         session_token = initialize_vaultwarden_session(
             req.vw_url, req.vw_client_id, req.vw_client_secret, req.vw_password
         )
+        print("DEBUG: Vaultwarden session initialized successfully.")
         
         set_secret("LITELLM_API_URL", req.litellm_url)
         set_secret("LITELLM_MASTER_KEY", req.litellm_key)
@@ -131,8 +134,10 @@ async def post_setup(req: SetupRequest):
         if req.litellm_folder_id: set_secret("LITELLM_FOLDER_ID", req.litellm_folder_id)
         if req.external_folder_id: set_secret("EXTERNAL_FOLDER_ID", req.external_folder_id)
         
+        print("DEBUG: All secrets saved. Setup complete.")
         return {"status": "success", "message": "Setup completed"}
     except Exception as e:
+        print(f"ERROR in setup: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)

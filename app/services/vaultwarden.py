@@ -19,16 +19,19 @@ def initialize_vaultwarden_session(url: str, client_id: str, client_secret: str,
     # 1. Config Server
     subprocess.run(["bw", "config", "server", url], env=env, capture_output=True, check=True)
     
-    # 2. Login via API keys
+    # 2. Ensure we are logged out first to avoid session conflicts
+    subprocess.run(["bw", "logout"], env=env, capture_output=True)
+    
+    # 3. Login via API keys
     env["BW_CLIENTID"] = client_id
     env["BW_CLIENTSECRET"] = client_secret
     login_proc = subprocess.run(["bw", "login", "--apikey"], env=env, capture_output=True, text=True)
-    # Note: If already logged in, it returns a non-zero code. We can ignore failures here and just try to unlock.
     
-    # 3. Unlock with password
+    # 4. Unlock with password
     unlock_proc = subprocess.run(["bw", "unlock", password, "--raw"], env=env, capture_output=True, text=True)
     if unlock_proc.returncode != 0:
-        raise Exception(f"Failed to unlock Vaultwarden: {unlock_proc.stderr}")
+        error_msg = unlock_proc.stderr if unlock_proc.stderr else "Unknown unlock failure"
+        raise Exception(f"Failed to unlock Vaultwarden: {error_msg}")
         
     return unlock_proc.stdout.strip()
 

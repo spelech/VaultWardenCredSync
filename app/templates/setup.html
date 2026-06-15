@@ -122,11 +122,31 @@
     <script>
         let setupData = {};
 
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container') || createToastContainer();
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-festool' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-between min-w-[300px] transform translate-y-10 opacity-0 transition-all duration-300 ease-out border border-white/10 mb-3`;
+            toast.innerHTML = `<span class="font-bold text-sm">${message}</span><button onclick="this.parentElement.remove()" class="ml-4 text-white/50 hover:text-white">✕</button>`;
+            toastContainer.appendChild(toast);
+            setTimeout(() => { toast.classList.remove('translate-y-10', 'opacity-0'); toast.classList.add('translate-y-0', 'opacity-100'); }, 10);
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-x-10'); setTimeout(() => toast.remove(), 300); }, 4000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed bottom-8 right-8 z-[100] flex flex-col items-end';
+            document.body.appendChild(container);
+            return container;
+        }
+
         function updateVaultLink() {
             const url = document.getElementById('vw_url').value;
             const link = document.getElementById('vw-key-link');
             if (url && url.startsWith('http')) {
                 const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+                // Updated to go to Account Settings directly
                 link.href = `${cleanUrl}/#/settings/security/keys`;
                 link.classList.remove('hidden');
             } else {
@@ -135,13 +155,12 @@
         }
 
         function showResult(msg, type = 'info') {
+            showToast(msg, type === 'info' ? 'info' : type);
             const div = document.getElementById('setup-result');
             div.classList.remove('hidden', 'bg-blue-900/30', 'text-blue-400', 'border-blue-500/30', 'bg-green-900/30', 'text-green-400', 'border-green-500/30', 'bg-red-900/30', 'text-red-400', 'border-red-500/30');
-            
             if (type === 'info') div.classList.add('bg-blue-900/30', 'text-blue-400', 'border-blue-500/30');
             if (type === 'success') div.classList.add('bg-green-900/30', 'text-green-400', 'border-green-500/30');
             if (type === 'error') div.classList.add('bg-red-900/30', 'text-red-400', 'border-red-500/30');
-            
             div.innerHTML = msg;
         }
 

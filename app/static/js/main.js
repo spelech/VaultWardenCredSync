@@ -1,19 +1,49 @@
+function showToast(message, type = 'success') {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-festool' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+    
+    toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-between min-w-[300px] transform translate-y-10 opacity-0 transition-all duration-300 ease-out border border-white/10 mb-3`;
+    toast.innerHTML = `
+        <span class="font-bold text-sm">${message}</span>
+        <button onclick="this.parentElement.remove()" class="ml-4 text-white/50 hover:text-white">✕</button>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+    }, 10);
+    
+    // Auto remove
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-x-10');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed bottom-8 right-8 z-[100] flex flex-col items-end';
+    document.body.appendChild(container);
+    return container;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Credential Portal loaded");
 });
 
 function switchTab(tabId) {
-    // Hide all sections
     document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
-    // Show selected section
     document.getElementById(`section-${tabId}`).classList.remove('hidden');
-
-    // Update tab styles
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.classList.remove('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
         b.classList.add('text-gray-400');
     });
-
     const activeBtn = document.getElementById(`tab-${tabId}`);
     activeBtn.classList.remove('text-gray-400');
     activeBtn.classList.add('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
@@ -22,7 +52,7 @@ function switchTab(tabId) {
 async function makeRequest(url, data, resultElementId) {
     const resultDiv = document.getElementById(resultElementId);
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse">⚙️ Processing transaction...</p>';
+    resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse font-bold text-xs uppercase tracking-widest">⚙️ Initializing Secure Transaction...</p>';
 
     try {
         const response = await fetch(url, {
@@ -36,6 +66,8 @@ async function makeRequest(url, data, resultElementId) {
         if (!response.ok) {
             throw new Error(result.detail || 'Request failed');
         }
+
+        showToast(result.message);
 
         let resultHtml = `
             <div class="bg-green-900/20 border border-festool/30 rounded-xl p-6 mt-6">
@@ -81,6 +113,7 @@ async function makeRequest(url, data, resultElementId) {
         resultHtml += `</div>`;
         resultDiv.innerHTML = resultHtml;
     } catch (err) {
+        showToast(err.message, 'error');
         resultDiv.innerHTML = `
             <div class="bg-red-900/20 border border-red-500/30 rounded-xl p-6 mt-6">
                 <div class="flex items-center">
