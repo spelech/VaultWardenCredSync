@@ -13,6 +13,7 @@
             <p class="text-sm text-gray-600">Configure your encrypted database connections.</p>
         </header>
 
+        <!-- Step 1: Auth -->
         <form id="setup-form" class="space-y-4">
             <div>
                 <h3 class="font-medium text-lg border-b pb-2 mb-4">LiteLLM</h3>
@@ -43,20 +44,45 @@
             </div>
 
             <div class="pt-6">
-                <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">Save & Encrypt</button>
+                <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">Next: Map Folders</button>
             </div>
             <div id="setup-result" class="mt-4 hidden"></div>
+        </form>
+
+        <!-- Step 2: Folders -->
+        <form id="folders-form" class="space-y-4 hidden mt-6 border-t pt-6">
+            <h3 class="font-medium text-lg border-b pb-2 mb-4">Map Folders</h3>
+            <p class="text-sm text-gray-600 mb-4">Select default Vaultwarden folders for auto-organization.</p>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">SSH Keys Folder</label>
+                <select id="ssh_folder" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"></select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">LiteLLM Keys Folder</label>
+                <select id="litellm_folder" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"></select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">External Credentials Folder</label>
+                <select id="ext_folder" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"></select>
+            </div>
+
+            <div class="pt-6">
+                <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700">Complete Setup</button>
+            </div>
         </form>
     </div>
     
     <script>
+        let setupData = {};
+
         document.getElementById('setup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const resultDiv = document.getElementById('setup-result');
             resultDiv.classList.remove('hidden');
-            resultDiv.innerHTML = '<p class="text-blue-500">Saving configurations and initializing Bitwarden session...</p>';
+            resultDiv.innerHTML = '<p class="text-blue-500">Authenticating and fetching folders...</p>';
 
-            const data = {
+            setupData = {
                 litellm_url: document.getElementById('litellm_url').value,
                 litellm_key: document.getElementById('litellm_key').value,
                 vw_url: document.getElementById('vw_url').value,
@@ -66,10 +92,47 @@
             };
 
             try {
+                const response = await fetch('/api/vaultwarden/login-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(setupData)
+                });
+                
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Login failed');
+
+                resultDiv.innerHTML = '<p class="text-green-600 font-medium">Authenticated! Please map your folders below.</p>';
+                document.getElementById('setup-form').querySelector('button').disabled = true;
+                
+                // Populate dropdowns
+                const folders = result.folders || [];
+                const optionsHtml = '<option value="">-- No Folder (Root) --</option>' + 
+                    folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+                
+                document.getElementById('ssh_folder').innerHTML = optionsHtml;
+                document.getElementById('litellm_folder').innerHTML = optionsHtml;
+                document.getElementById('ext_folder').innerHTML = optionsHtml;
+
+                document.getElementById('folders-form').classList.remove('hidden');
+            } catch (err) {
+                resultDiv.innerHTML = `<p class="text-red-600 font-medium">Error: ${err.message}</p>`;
+            }
+        });
+
+        document.getElementById('folders-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setupData.ssh_folder_id = document.getElementById('ssh_folder').value || null;
+            setupData.litellm_folder_id = document.getElementById('litellm_folder').value || null;
+            setupData.external_folder_id = document.getElementById('ext_folder').value || null;
+
+            const resultDiv = document.getElementById('setup-result');
+            resultDiv.innerHTML = '<p class="text-blue-500">Saving final configuration...</p>';
+
+            try {
                 const response = await fetch('/api/setup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(setupData)
                 });
                 
                 const result = await response.json();

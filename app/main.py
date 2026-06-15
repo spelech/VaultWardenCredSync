@@ -8,8 +8,8 @@ from typing import Optional, List
 
 from app.services.ssh import generate_ssh_keypair
 from app.services.litellm import generate_virtual_key
-from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session
-from app.database import is_setup_complete, set_secret
+from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item
+from app.database import is_setup_complete, set_secret, get_secret
 
 app = FastAPI(title="Credential Portal", version="0.1.0")
 
@@ -37,6 +37,12 @@ class ExternalCredentialRequest(BaseModel):
     name: str
     credential_data: str
 
+class LoginTestRequest(BaseModel):
+    vw_url: str
+    vw_client_id: str
+    vw_client_secret: str
+    vw_password: str
+
 class SetupRequest(BaseModel):
     litellm_url: str
     litellm_key: str
@@ -44,6 +50,9 @@ class SetupRequest(BaseModel):
     vw_client_id: str
     vw_client_secret: str
     vw_password: str
+    ssh_folder_id: Optional[str] = None
+    litellm_folder_id: Optional[str] = None
+    external_folder_id: Optional[str] = None
 
 # Middleware to check if setup is complete
 @app.middleware("http")
@@ -66,15 +75,27 @@ async def get_setup(request: Request):
         return RedirectResponse(url="/")
     return templates.TemplateResponse(request=request, name="setup.html")
 
+@app.post("/api/vaultwarden/login-test")
+async def post_login_test(req: LoginTestRequest):
+    try:
+        session_token = initialize_vaultwarden_session(
+            req.vw_url, req.vw_client_id, req.vw_client_secret, req.vw_password
+        )
+        # Temporarily save session just to fetch folders
+        set_secret("BW_SESSION", session_token)
+        set_secret("VAULTWARDEN_URL", req.vw_url)
+        folders = get_folders()
+        return {"status": "success", "session": session_token, "folders": folders}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/api/setup")
 async def post_setup(req: SetupRequest):
     try:
-        # Before saving, let's verify we can log into Vaultwarden
         session_token = initialize_vaultwarden_session(
             req.vw_url, req.vw_client_id, req.vw_client_secret, req.vw_password
         )
         
-        # If successful, save to encrypted DB
         set_secret("LITELLM_API_URL", req.litellm_url)
         set_secret("LITELLM_MASTER_KEY", req.litellm_key)
         set_secret("VAULTWARDEN_URL", req.vw_url)
@@ -82,6 +103,10 @@ async def post_setup(req: SetupRequest):
         set_secret("VAULTWARDEN_CLIENT_SECRET", req.vw_client_secret)
         set_secret("VAULTWARDEN_PASSWORD", req.vw_password)
         set_secret("BW_SESSION", session_token)
+        
+        if req.ssh_folder_id: set_secret("SSH_FOLDER_ID", req.ssh_folder_id)
+        if req.litellm_folder_id: set_secret("LITELLM_FOLDER_ID", req.litellm_folder_id)
+        if req.external_folder_id: set_secret("EXTERNAL_FOLDER_ID", req.external_folder_id)
         
         return {"status": "success", "message": "Setup completed"}
     except Exception as e:
@@ -99,17 +124,18 @@ async def health_check():
 async def api_generate_ssh(req: SSHRequest):
     try:
         keys = generate_ssh_keypair(key_name=req.name, comment=req.comment)
+        folder_id = get_secret("SSH_FOLDER_ID")
         
-        # Syncing to Vaultwarden as hidden fields on a Login Item
-        fields = [
-            {"name": "Private Key", "value": keys['private_key'], "type": 1}, # 1 = Hidden
-            {"name": "Public Key", "value": keys['public_key'], "type": 1}
-        ]
-        sync_result = create_secure_login(name=req.name, username=req.comment, fields=fields)
+        sync_result = create_ssh_key_item(
+            name=req.name,
+            private_key=keys['private_key'],
+            public_key=keys['public_key'],
+            folder_id=folder_id
+        )
         
         return {
             "status": "success",
-            "message": "SSH Key generated and synced to Vaultwarden as hidden fields.",
+            "message": "SSH Key generated and synced to Vaultwarden as a native SSH Key.",
             "keys": keys,
             "vaultwarden": sync_result
         }
@@ -120,12 +146,13 @@ async def api_generate_ssh(req: SSHRequest):
 async def api_generate_litellm(req: LiteLLMRequest):
     try:
         key_data = await generate_virtual_key(key_alias=req.name, models=req.models)
+        folder_id = get_secret("LITELLM_FOLDER_ID")
         
         fields = [
             {"name": "Virtual Key", "value": key_data['key'], "type": 1},
-            {"name": "Alias", "value": key_data['key_alias'], "type": 0} # 0 = Text
+            {"name": "Alias", "value": key_data['key_alias'], "type": 0}
         ]
-        sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields)
+        sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         
         return {
             "status": "success",
@@ -139,10 +166,11 @@ async def api_generate_litellm(req: LiteLLMRequest):
 @app.post("/api/store-external")
 async def api_store_external(req: ExternalCredentialRequest):
     try:
+        folder_id = get_secret("EXTERNAL_FOLDER_ID")
         fields = [
             {"name": "Credential Data", "value": req.credential_data, "type": 1}
         ]
-        sync_result = create_secure_login(name=req.name, fields=fields)
+        sync_result = create_secure_login(name=req.name, fields=fields, folder_id=folder_id)
         
         return {
             "status": "success",
