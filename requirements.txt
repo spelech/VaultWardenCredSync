@@ -6,3 +6,5 @@ httpx
 jinja2
 python-multipart
 cryptography
+pytest
+pytest-asyncio
