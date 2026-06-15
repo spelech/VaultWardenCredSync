@@ -2,42 +2,72 @@ import subprocess
 import json
 import os
 import tempfile
+from typing import List, Dict
+from app.database import get_secret
 
-VAULTWARDEN_URL = os.getenv("VAULTWARDEN_URL", "")
+def get_vw_env():
+    session = get_secret("BW_SESSION")
+    env = os.environ.copy()
+    if session:
+        env["BW_SESSION"] = session
+    return env
+
+def initialize_vaultwarden_session(url: str, client_id: str, client_secret: str, password: str) -> str:
+    """Logs into Vaultwarden and unlocks the vault to return a session key."""
+    env = os.environ.copy()
+    
+    # 1. Config Server
+    subprocess.run(["bw", "config", "server", url], env=env, capture_output=True, check=True)
+    
+    # 2. Login via API keys
+    env["BW_CLIENTID"] = client_id
+    env["BW_CLIENTSECRET"] = client_secret
+    login_proc = subprocess.run(["bw", "login", "--apikey"], env=env, capture_output=True, text=True)
+    # Note: If already logged in, it returns a non-zero code. We can ignore failures here and just try to unlock.
+    
+    # 3. Unlock with password
+    unlock_proc = subprocess.run(["bw", "unlock", password, "--raw"], env=env, capture_output=True, text=True)
+    if unlock_proc.returncode != 0:
+        raise Exception(f"Failed to unlock Vaultwarden: {unlock_proc.stderr}")
+        
+    return unlock_proc.stdout.strip()
 
 def run_bw_command(cmd_list, env=None):
     """Run a Bitwarden CLI command and return JSON."""
-    process_env = os.environ.copy()
-    if env:
-        process_env.update(env)
-    
-    # Configure the server url if not set
-    if VAULTWARDEN_URL:
-        subprocess.run(["bw", "config", "server", VAULTWARDEN_URL], env=process_env, capture_output=True)
+    vw_url = get_secret("VAULTWARDEN_URL")
+    if vw_url:
+        subprocess.run(["bw", "config", "server", vw_url], env=env, capture_output=True)
         
-    result = subprocess.run(["bw"] + cmd_list, env=process_env, capture_output=True, text=True)
+    result = subprocess.run(["bw"] + cmd_list, env=env, capture_output=True, text=True)
     if result.returncode != 0:
         raise Exception(f"bw command failed: {result.stderr}")
     return result.stdout
 
-def create_secure_note(name: str, notes: str, folder_id: str = None):
-    """Creates a secure note in Vaultwarden using bw cli."""
-    # MVP approach: Use bw get template
-    # Since bw requires session management, for this MVP we'll log it if session isn't available
-    session = os.getenv("BW_SESSION")
-    if not session:
+def create_secure_login(name: str, username: str = None, fields: List[Dict] = None, folder_id: str = None):
+    """Creates a login item in Vaultwarden with custom fields using bw cli."""
+    env = get_vw_env()
+    if not env.get("BW_SESSION"):
         print(f"Warning: BW_SESSION not set. Simulating Vaultwarden sync for: {name}")
-        return {"simulated": True, "name": name, "status": "success"}
-
-    env = {"BW_SESSION": session}
+        return {"simulated": True, "name": name, "status": "success", "fields": fields}
     
     # Get template
     template_str = run_bw_command(["get", "template", "item"], env=env)
     item = json.loads(template_str)
     
-    item["type"] = 2 # Secure note
+    item["type"] = 1 # 1 = Login
     item["name"] = name
-    item["notes"] = notes
+    
+    # Setup login struct
+    login_template_str = run_bw_command(["get", "template", "item.login"], env=env)
+    login_item = json.loads(login_template_str)
+    if username:
+        login_item["username"] = username
+    item["login"] = login_item
+    
+    # Add custom fields
+    if fields:
+        item["fields"] = fields
+        
     if folder_id:
         item["folderId"] = folder_id
         

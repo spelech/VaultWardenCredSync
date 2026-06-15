@@ -6,9 +6,4 @@ services:
       - "8111:8110"
     volumes:
       - .:/app
-    environment:
-      - LITELLM_API_URL=${LITELLM_API_URL}
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
-      - VAULTWARDEN_URL=${VAULTWARDEN_URL}
-      - VAULTWARDEN_API_KEY=${VAULTWARDEN_API_KEY}
     restart: unless-stopped
