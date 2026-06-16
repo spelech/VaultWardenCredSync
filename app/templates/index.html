@@ -7,31 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --prussian-blue: #031d44;
-            --deep-space: #04395e;
-            --muted-teal: #70a288;
-            --tan: #dab785;
-            --burnt-peach: #d5896f;
+            --charcoal-blue: #233d4d;
+            --deep-charcoal: #1a2f3d;
+            --pumpkin-spice: #fe7f2d;
+            --golden-pollen: #fcca46;
+            --muted-olive: #a1c181;
+            --seagrass: #619b8a;
         }
-        body { background-color: var(--prussian-blue); }
-        .bg-deep { background-color: var(--deep-space); }
-        .bg-teal { background-color: var(--muted-teal); }
-        .bg-tan { background-color: var(--tan); }
-        .bg-peach { background-color: var(--burnt-peach); }
+        body { background-color: var(--charcoal-blue); }
+        .bg-deep { background-color: var(--deep-charcoal); }
+        .bg-teal { background-color: var(--seagrass); }
+        .bg-tan { background-color: var(--golden-pollen); }
+        .bg-peach { background-color: var(--pumpkin-spice); }
         
-        .text-teal { color: var(--muted-teal); }
-        .text-tan { color: var(--tan); }
-        .text-peach { color: var(--burnt-peach); }
+        .text-teal { color: var(--seagrass); }
+        .text-golden-pollen-experiment { color: var(--golden-pollen); }
+        .text-peach { color: var(--pumpkin-spice); }
         
-        .border-teal { border-color: var(--muted-teal); }
-        .border-tan { border-color: var(--tan); }
-        .border-peach { border-color: var(--burnt-peach); }
+        .border-teal { border-color: var(--seagrass); }
+        .border-tan { border-color: var(--golden-pollen); }
+        .border-peach { border-color: var(--pumpkin-spice); }
         
-        .ring-teal:focus { --tw-ring-color: var(--muted-teal); }
+        .ring-teal:focus { --tw-ring-color: var(--seagrass); }
         
         .btn-primary { 
-            background-color: var(--muted-teal);
-            color: var(--prussian-blue);
+            background-color: var(--seagrass);
+            color: var(--charcoal-blue);
             transition: all 0.2s;
         }
         .btn-primary:hover {
@@ -47,9 +48,9 @@
             transition: all 0.2s;
         }
         .sidebar-btn.active {
-            background-color: var(--deep-space);
-            color: var(--tan);
-            border-left-color: var(--tan);
+            background-color: var(--deep-charcoal);
+            color: var(--golden-pollen);
+            border-left-color: var(--golden-pollen);
         }
     </style>
 </head>
@@ -57,7 +58,7 @@
     <div class="max-w-6xl mx-auto">
         <header class="mb-12 border-b border-gray-700/50 pb-8 flex flex-col md:flex-row md:items-end justify-between">
             <div>
-                <h1 class="text-5xl font-black text-white tracking-tighter">Quick<span class="text-tan">Creds</span></h1>
+                <h1 class="text-5xl font-black text-white tracking-tighter">Quick<span class=.text-golden-pollen-experiment">Creds</span></h1>
                 <p class="text-xs text-teal mt-2 uppercase tracking-widest font-bold">Secure Key Provisioning & Auto-Organization</p>
             </div>
             <div class="mt-4 md:mt-0">
@@ -97,18 +98,18 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mb-10">
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Key Name</label>
-                                <input type="text" id="ssh-name" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="e.g. production-deploy">
+                                <input type="text" id="ssh-name" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="e.g. production-deploy">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Key Type</label>
-                                <select id="ssh-type" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition cursor-pointer" style="background-color: #031d44">
+                                <select id="ssh-type" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition cursor-pointer" style="background-color: #1a2f3d">
                                     <option value="ed25519">Ed25519 (Recommended)</option>
                                     <option value="rsa">RSA 4096-bit</option>
                                 </select>
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Comment <span class="text-[9px] text-gray-600 normal-case ml-2 font-medium">(Optional metadata)</span></label>
-                                <input type="text" id="ssh-comment" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="e.g. user@hostname">
+                                <input type="text" id="ssh-comment" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="e.g. user@hostname">
                             </div>
                         </div>
                         <button onclick="generateSSH()" class="btn-primary font-black px-10 py-4 rounded-2xl shadow-lg uppercase tracking-tighter text-lg">1. Generate Keypair</button>
@@ -121,11 +122,11 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mb-10">
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Key Alias</label>
-                                <input type="text" id="llm-alias" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="e.g. dev-app-key">
+                                <input type="text" id="llm-alias" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="e.g. dev-app-key">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Key Type</label>
-                                <select id="llm-key-type" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition cursor-pointer" style="background-color: #031d44">
+                                <select id="llm-key-type" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition cursor-pointer" style="background-color: #1a2f3d">
                                     <option value="api">API Only (Inference)</option>
                                     <option value="mgmt">Management Only (Admin)</option>
                                     <option value="both">Both (Full Access)</option>
@@ -133,21 +134,21 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Owned By</label>
-                                <input list="users-list" id="llm-user" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="Search or type User ID...">
+                                <input list="users-list" id="llm-user" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="Search or type User ID...">
                                 <datalist id="users-list"></datalist>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Team ID</label>
-                                <input list="teams-list" id="llm-team" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="Search or type Team ID...">
+                                <input list="teams-list" id="llm-team" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="Search or type Team ID...">
                                 <datalist id="teams-list"></datalist>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Max Budget ($)</label>
-                                <input type="number" id="llm-budget" step="0.01" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="e.g. 5.00">
+                                <input type="number" id="llm-budget" step="0.01" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="e.g. 5.00">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Allowed Models</label>
-                                <input type="text" id="llm-models" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="gpt-4, claude-3-haiku">
+                                <input type="text" id="llm-models" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="gpt-4, claude-3-haiku">
                             </div>
                         </div>
                         <button onclick="generateLiteLLM()" class="btn-primary font-black px-10 py-4 rounded-2xl shadow-lg uppercase tracking-tighter text-lg">1. Generate Key</button>
@@ -160,11 +161,11 @@
                         <div class="space-y-8 max-w-3xl">
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Name</label>
-                                <input type="text" id="ext-name" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #031d44" placeholder="e.g. GCP Service Account JSON">
+                                <input type="text" id="ext-name" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder="e.g. GCP Service Account JSON">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Credential Data</label>
-                                <textarea id="ext-data" rows="10" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition font-mono text-sm placeholder:text-gray-600" style="background-color: #031d44" placeholder='{"type": "service_account", ...}'></textarea>
+                                <textarea id="ext-data" rows="10" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition font-mono text-sm placeholder:text-gray-600" style="background-color: #1a2f3d" placeholder='{"type": "service_account", ...}'></textarea>
                             </div>
                         </div>
                         <button onclick="storeExternal()" class="btn-primary mt-10 font-black px-10 py-4 rounded-2xl shadow-lg uppercase tracking-tighter text-lg">Sync to Vaultwarden</button>

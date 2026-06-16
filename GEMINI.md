@@ -6,7 +6,7 @@ Follow these architecture and security rules when modifying this codebase.
 - **Logic Separation**: Keep API route definitions in `app/main.py` and core business logic (SSH, LiteLLM, Vaultwarden interactions) in `app/services/`.
 - **Encryption First**: All sensitive configuration MUST be stored via `app/database.py` which handles AES encryption at rest. NEVER use plain environment variables for persistent secrets.
 - **Subprocess Safety**: When calling `bw` or `ssh-keygen`, always use `subprocess.run` with `capture_output=True` and avoid `shell=True` to prevent injection.
-- **UI Consistency**: Adhere to the QuickCreds Prussian Blue (`#031d44`) & Muted Teal (`#70a288`) palette.
+- **UI Consistency**: Adhere to the QuickCreds Prussian Blue (`#1a2f3d`) & Muted Teal (`#70a288`) palette.
 
 ## 🔒 Security Mandates
 - **Vaultwarden Types**: Use native `type: 5` for SSH keys. Use `type: 1` (Login) with custom fields of `type: 1` (Hidden) for all other sensitive keys.

@@ -7,21 +7,22 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --prussian-blue: #031d44;
-            --deep-space: #04395e;
-            --muted-teal: #70a288;
-            --tan: #dab785;
-            --burnt-peach: #d5896f;
+            --charcoal-blue: #233d4d;
+            --deep-charcoal: #1a2f3d;
+            --pumpkin-spice: #fe7f2d;
+            --golden-pollen: #fcca46;
+            --muted-olive: #a1c181;
+            --seagrass: #619b8a;
         }
-        body { background-color: var(--prussian-blue); }
-        .bg-deep { background-color: var(--deep-space); }
-        .bg-teal { background-color: var(--muted-teal); }
-        .text-teal { color: var(--muted-teal); }
-        .text-tan { color: var(--tan); }
+        body { background-color: var(--charcoal-blue); }
+        .bg-deep { background-color: var(--deep-charcoal); }
+        .bg-teal { background-color: var(--seagrass); }
+        .text-teal { color: var(--seagrass); }
+        .text-tan { color: var(--golden-pollen); }
         
         .btn-primary { 
-            background-color: var(--muted-teal);
-            color: var(--prussian-blue);
+            background-color: var(--seagrass);
+            color: var(--charcoal-blue);
             transition: all 0.2s;
         }
         .btn-primary:hover {
@@ -29,20 +30,20 @@
             transform: translateY(-1px);
         }
         .input-dark {
-            background-color: #031d44;
+            background-color: #1a2f3d;
             border-color: transparent;
             color: white;
         }
         .input-dark:focus {
-            --tw-ring-color: var(--muted-teal);
-            border-color: var(--muted-teal);
+            --tw-ring-color: var(--seagrass);
+            border-color: var(--seagrass);
         }
     </style>
 </head>
 <body class="min-h-screen text-gray-200 flex items-center justify-center p-4">
     <div class="max-w-2xl w-full bg-deep shadow-2xl rounded-3xl p-10 border border-white/5">
         <header class="mb-10 border-b border-white/5 pb-8">
-            <h1 class="text-4xl font-black text-white tracking-tighter">Initial <span class="text-tan">Setup</span></h1>
+            <h1 class="text-4xl font-black text-white tracking-tighter italic">Initial <span class="text-[#fcca46]" style="color: #fcca46">Setup</span></h1>
             <p class="text-xs text-teal mt-2 uppercase tracking-widest font-bold">Configure your secure environment.</p>
         </header>
 
@@ -50,7 +51,7 @@
         <div id="step-1" class="space-y-8">
             <section>
                 <h3 class="font-black text-sm uppercase tracking-widest text-teal mb-6 flex items-center">
-                    <span class="mr-3">⚡</span> LiteLLM Configuration
+                    <span class="mr-3 text-peach">⚡</span> LiteLLM Configuration
                 </h3>
                 <div class="space-y-5">
                     <div>
@@ -70,7 +71,7 @@
 
             <section class="pt-8 border-t border-white/5">
                 <h3 class="font-black text-sm uppercase tracking-widest text-teal mb-6 flex items-center">
-                    <span class="mr-3">🔒</span> Vaultwarden / Bitwarden
+                    <span class="mr-3 text-tan">🔒</span> Vaultwarden / Bitwarden
                 </h3>
                 <div class="space-y-5">
                     <div>
@@ -99,7 +100,7 @@
                 </div>
             </section>
 
-            <div id="setup-result" class="mt-4 p-4 rounded-xl hidden text-xs font-bold uppercase tracking-wider"></div>
+            <div id="setup-result" class="mt-4 p-4 rounded-xl hidden text-xs font-bold uppercase tracking-wider border border-white/5"></div>
 
             <div class="pt-10">
                 <button id="next-btn" onclick="showStep2()" class="btn-primary w-full font-black px-4 py-5 rounded-2xl shadow-lg uppercase tracking-widest text-sm disabled:opacity-30 disabled:cursor-not-allowed" disabled>
@@ -141,7 +142,7 @@
         function showToast(message, type = 'success') {
             const toastContainer = document.getElementById('toast-container') || createToastContainer();
             const toast = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-teal' : type === 'error' ? 'bg-burnt-peach' : 'bg-blue-600';
+            const bgColor = type === 'success' ? 'bg-teal' : type === 'error' ? 'bg-peach' : 'bg-deep';
             toast.className = `${bgColor} text-prussian-blue px-6 py-3 rounded-xl shadow-2xl flex items-center justify-between min-w-[300px] transform translate-y-10 opacity-0 transition-all duration-300 ease-out mb-3`;
             toast.innerHTML = `<span class="font-black text-xs uppercase tracking-widest">${message}</span>`;
             toastContainer.appendChild(toast);
@@ -172,9 +173,9 @@
         function showResult(msg, type = 'info') {
             showToast(msg, type);
             const div = document.getElementById('setup-result');
-            div.classList.remove('hidden', 'bg-teal/10', 'text-teal', 'bg-burnt-peach/10', 'text-burnt-peach');
+            div.classList.remove('hidden', 'bg-teal/10', 'text-teal', 'bg-peach/10', 'text-peach');
             if (type === 'success') div.classList.add('bg-teal/10', 'text-teal');
-            if (type === 'error') div.classList.add('bg-burnt-peach/10', 'text-burnt-peach');
+            if (type === 'error') div.classList.add('bg-peach/10', 'text-peach');
             div.innerHTML = msg;
         }
 
