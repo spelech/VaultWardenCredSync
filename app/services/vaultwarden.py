@@ -58,6 +58,17 @@ def get_folders():
     folders_str = run_bw_command(["list", "folders"], env=env)
     return json.loads(folders_str)
 
+def get_existing_ssh_keys():
+    """Fetch all native SSH Key items from Vaultwarden."""
+    env = get_vw_env()
+    if not env.get("BW_SESSION"):
+        return []
+    
+    # List items with type 5
+    items_str = run_bw_command(["list", "items", "--search", ""], env=env)
+    items = json.loads(items_str)
+    return [i.get("name") for i in items if i.get("type") == 5]
+
 def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id: str = None):
     """Creates a native SSH Key item (type 5) in Vaultwarden."""
     env = get_vw_env()
