@@ -26,13 +26,24 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Pydantic models for requests
-class SSHRequest(BaseModel):
+class SSHGenerateRequest(BaseModel):
     name: str
     comment: Optional[str] = ""
+    key_type: Optional[str] = "ed25519"
 
-class LiteLLMRequest(BaseModel):
+class SSHSyncRequest(BaseModel):
+    name: str
+    private_key: str
+    public_key: str
+
+class LiteLLMGenerateRequest(BaseModel):
     name: str
     models: Optional[List[str]] = None
+
+class LiteLLMSyncRequest(BaseModel):
+    name: str
+    key: str
+    alias: str
 
 class ExternalCredentialRequest(BaseModel):
     name: str
@@ -149,43 +160,59 @@ async def health_check():
     return {"status": "ok"}
 
 @app.post("/api/generate-ssh")
-async def api_generate_ssh(req: SSHRequest):
+async def api_generate_ssh(req: SSHGenerateRequest):
     try:
-        keys = generate_ssh_keypair(key_name=req.name, comment=req.comment)
-        folder_id = get_secret("SSH_FOLDER_ID")
-        
-        sync_result = create_ssh_key_item(
-            name=req.name,
-            private_key=keys['private_key'],
-            public_key=keys['public_key'],
-            folder_id=folder_id
-        )
-        
+        keys = generate_ssh_keypair(key_name=req.name, comment=req.comment, key_type=req.key_type)
         return {
             "status": "success",
-            "message": "SSH Key generated and synced to Vaultwarden as a native SSH Key.",
-            "keys": keys,
+            "message": "SSH Key generated. Please review and sync.",
+            "keys": keys
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/sync-ssh")
+async def api_sync_ssh(req: SSHSyncRequest):
+    try:
+        folder_id = get_secret("SSH_FOLDER_ID")
+        sync_result = create_ssh_key_item(
+            name=req.name,
+            private_key=req.private_key,
+            public_key=req.public_key,
+            folder_id=folder_id
+        )
+        return {
+            "status": "success",
+            "message": "SSH Key successfully synced to Vaultwarden.",
             "vaultwarden": sync_result
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-litellm")
-async def api_generate_litellm(req: LiteLLMRequest):
+async def api_generate_litellm(req: LiteLLMGenerateRequest):
     try:
         key_data = await generate_virtual_key(key_alias=req.name, models=req.models)
-        folder_id = get_secret("LITELLM_FOLDER_ID")
-        
-        fields = [
-            {"name": "Virtual Key", "value": key_data['key'], "type": 1},
-            {"name": "Alias", "value": key_data['key_alias'], "type": 0}
-        ]
-        sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
-        
         return {
             "status": "success",
-            "message": "LiteLLM Key generated and synced.",
-            "key_data": key_data,
+            "message": "LiteLLM Key generated. Please review and sync.",
+            "key_data": key_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/sync-litellm")
+async def api_sync_litellm(req: LiteLLMSyncRequest):
+    try:
+        folder_id = get_secret("LITELLM_FOLDER_ID")
+        fields = [
+            {"name": "Virtual Key", "value": req.key, "type": 1},
+            {"name": "Alias", "value": req.alias, "type": 0}
+        ]
+        sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
+        return {
+            "status": "success",
+            "message": "LiteLLM Key successfully synced to Vaultwarden.",
             "vaultwarden": sync_result
         }
     except Exception as e:
