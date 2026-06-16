@@ -1,4 +1,4 @@
-# Gemini Mandates: Credential Portal
+# Gemini Mandates: QuickCreds Terminal
 
 Follow these architecture and security rules when modifying this codebase.
 
@@ -6,7 +6,7 @@ Follow these architecture and security rules when modifying this codebase.
 - **Logic Separation**: Keep API route definitions in `app/main.py` and core business logic (SSH, LiteLLM, Vaultwarden interactions) in `app/services/`.
 - **Encryption First**: All sensitive configuration MUST be stored via `app/database.py` which handles AES encryption at rest. NEVER use plain environment variables for persistent secrets.
 - **Subprocess Safety**: When calling `bw` or `ssh-keygen`, always use `subprocess.run` with `capture_output=True` and avoid `shell=True` to prevent injection.
-- **UI Consistency**: Adhere to the Dark Mode + Festool Green theme (`#009e5e`).
+- **UI Consistency**: Adhere to the QuickCreds Prussian Blue (`#031d44`) & Muted Teal (`#70a288`) palette.
 
 ## 🔒 Security Mandates
 - **Vaultwarden Types**: Use native `type: 5` for SSH keys. Use `type: 1` (Login) with custom fields of `type: 1` (Hidden) for all other sensitive keys.
@@ -16,6 +16,8 @@ Follow these architecture and security rules when modifying this codebase.
 
 ## 🐍 Development Workflow
 - **Dependency Management**: Add new dependencies to `requirements.txt`.
-- **Branching**: All new features must be developed on branches (e.g., `feat/my-feature`).
-- **Versioning**: Bump the `VERSION` file for every merge to `main`.
+- **Branching Strategy**: All features and fixes MUST be developed on dedicated branches (e.g., `feat/my-feature` or `fix/my-bug`).
+- **Merging Protocol**: Merge to `main` via PR or non-squash merge. **DO NOT SQUASH** on merge to preserve commit history.
+- **Versioning**: The `VERSION` file MUST be bumped manually for every merge to `main`.
+- **CI Efficiency**: PRs and branches run unit tests. Production image builds and deployments are triggered ONLY on merges to `main` to conserve build minutes.
 - **Testing**: Add unit tests in `tests/` for any new service logic.
