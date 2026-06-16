@@ -47,6 +47,7 @@ class LiteLLMSyncRequest(BaseModel):
     name: str
     key: str
     alias: str
+    key_type: Optional[str] = None
 
 class ExternalCredentialRequest(BaseModel):
     name: str
@@ -216,7 +217,8 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         folder_id = get_secret("LITELLM_FOLDER_ID")
         fields = [
             {"name": "Virtual Key", "value": req.key, "type": 1},
-            {"name": "Alias", "value": req.alias, "type": 0}
+            {"name": "Alias", "value": req.alias, "type": 0},
+            {"name": "Key Type", "value": req.key_type if req.key_type else "api", "type": 0}
         ]
         sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         return {
