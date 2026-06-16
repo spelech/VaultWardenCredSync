@@ -92,15 +92,16 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
         
     # 2. Check Setup
+    setup_allowed_paths = ["/setup", "/api/setup", "/api/vaultwarden/login-test", "/api/litellm/test", "/api/health"]
     if not is_setup_complete():
-        if path == "/setup" or path == "/api/setup" or path == "/api/vaultwarden/login-test":
+        if path in setup_allowed_paths:
             return await call_next(request)
         if path.startswith("/api/"):
             return JSONResponse(status_code=403, content={"detail": "Setup not complete"})
         return RedirectResponse(url="/setup")
     
     # 3. Check Auth (Session Cookie)
-    allowed_auth_paths = ["/login", "/api/login", "/setup", "/api/setup", "/api/vaultwarden/login-test", "/api/health"]
+    allowed_auth_paths = ["/login", "/api/login", "/setup", "/api/setup", "/api/vaultwarden/login-test", "/api/litellm/test", "/api/health"]
     if path not in allowed_auth_paths:
         session = request.cookies.get("portal_session")
         if not session or session != get_secret("SESSION_ID"):
