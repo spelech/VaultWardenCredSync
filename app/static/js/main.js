@@ -86,8 +86,11 @@ async function generateSSH() {
     const key_type = document.getElementById('ssh-type').value;
     if (!name) return alert('Name is required');
 
+    let overwrite = false;
     if (existingSSHKeys.includes(name)) {
-        if (!confirm(`An SSH key named "${name}" already exists in Vaultwarden. Proceed anyway?`)) {
+        if (confirm(`An SSH key named "${name}" already exists. Overwrite existing item?`)) {
+            overwrite = true;
+        } else {
             return;
         }
     }
@@ -105,7 +108,7 @@ async function generateSSH() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Generation failed');
 
-        lastGeneratedSSH = { name, ...result.keys };
+        lastGeneratedSSH = { name, overwrite, ...result.keys };
         showToast(result.message);
 
         resultDiv.innerHTML = `
@@ -150,7 +153,8 @@ async function syncSSH() {
             body: JSON.stringify({
                 name: lastGeneratedSSH.name,
                 private_key: lastGeneratedSSH.private_key,
-                public_key: lastGeneratedSSH.public_key
+                public_key: lastGeneratedSSH.public_key,
+                overwrite: lastGeneratedSSH.overwrite
             })
         });
         const result = await response.json();
@@ -215,6 +219,20 @@ async function generateLiteLLM() {
                         <div class="relative">
                             <input type="text" readonly class="w-full bg-[#111827] text-festool p-3 text-sm font-mono border border-gray-700 rounded-lg focus:outline-none" value="${result.key_data.key}">
                             <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="text-[10px] text-gray-400">
+                            <span class="font-bold uppercase block text-gray-600 mb-1">Type:</span>
+                            <span class="font-mono text-festool uppercase">${key_type}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400">
+                            <span class="font-bold uppercase block text-gray-600 mb-1">User:</span>
+                            <span class="font-mono text-festool">${user_id || 'None'}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400">
+                            <span class="font-bold uppercase block text-gray-600 mb-1">Team:</span>
+                            <span class="font-mono text-festool">${team_id || 'None'}</span>
                         </div>
                     </div>
                 </div>
