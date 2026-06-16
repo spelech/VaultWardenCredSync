@@ -6,7 +6,8 @@ async def generate_virtual_key(
     user_id: str = None, 
     team_id: str = None, 
     max_budget: float = None,
-    models: list = None
+    models: list = None,
+    key_type: str = "api"
 ):
     """Generates a virtual key in LiteLLM following official API schema."""
     litellm_api_url = get_secret("LITELLM_API_URL")
@@ -21,14 +22,19 @@ async def generate_virtual_key(
     }
     
     payload = {"key_alias": key_alias}
-    if user_id:
-        payload["user_id"] = user_id
-    if team_id:
-        payload["team_id"] = team_id
-    if max_budget is not None:
-        payload["max_budget"] = max_budget
-    if models:
-        payload["models"] = models
+    if user_id: payload["user_id"] = user_id
+    if team_id: payload["team_id"] = team_id
+    if max_budget is not None: payload["max_budget"] = max_budget
+    if models: payload["models"] = models
+
+    # Restore Key Type logic
+    if key_type == "mgmt":
+        payload["user_role"] = "proxy_admin"
+        payload["allowed_routes"] = ["/key/*", "/user/*", "/team/*", "/model/*", "/health/*", "/config/*", "/ui/*"]
+    elif key_type == "both":
+        payload["user_role"] = "proxy_admin"
+    else:
+        payload["user_role"] = "internal_user"
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -48,6 +54,46 @@ async def generate_virtual_key(
             "key_alias": key_alias,
             "user_id": user_id,
             "team_id": team_id,
+            "key_type": key_type,
             "models": data.get("models", []),
             "key_name": data.get("key_name")
         }
+
+async def get_litellm_teams():
+    """Fetch all teams from LiteLLM."""
+    url = get_secret("LITELLM_API_URL")
+    key = get_secret("LITELLM_MASTER_KEY")
+    if not url or not key: return []
+    
+    headers = {"Authorization": f"Bearer {key}"}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{url}/team/list", headers=headers, timeout=5.0)
+        if response.status_code == 200:
+            return response.json().get("teams", [])
+        return []
+
+async def get_litellm_users():
+    """Fetch all users from LiteLLM."""
+    url = get_secret("LITELLM_API_URL")
+    key = get_secret("LITELLM_MASTER_KEY")
+    if not url or not key: return []
+    
+    headers = {"Authorization": f"Bearer {key}"}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{url}/user/list", headers=headers, timeout=5.0)
+        if response.status_code == 200:
+            return response.json().get("users", [])
+        return []
+
+async def get_litellm_models():
+    """Fetch all models from LiteLLM."""
+    url = get_secret("LITELLM_API_URL")
+    key = get_secret("LITELLM_MASTER_KEY")
+    if not url or not key: return []
+    
+    headers = {"Authorization": f"Bearer {key}"}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{url}/models", headers=headers, timeout=5.0)
+        if response.status_code == 200:
+            return response.json().get("data", [])
+        return []

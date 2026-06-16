@@ -82,20 +82,30 @@
                                 <input type="text" id="llm-alias" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="e.g. dev-app-key">
                             </div>
                             <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Key Type</label>
+                                <select id="llm-key-type" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition cursor-pointer">
+                                    <option value="api">API Only (Inference)</option>
+                                    <option value="mgmt">Management Only (Admin)</option>
+                                    <option value="both">Both (Full Access)</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Owned By <span class="text-[10px] text-gray-600 normal-case ml-2">(User ID)</span></label>
-                                <input type="text" id="llm-user" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="e.g. steve-admin">
+                                <input list="users-list" id="llm-user" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="Search or type User ID...">
+                                <datalist id="users-list"></datalist>
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Team ID <span class="text-[10px] text-gray-600 normal-case ml-2">(Optional)</span></label>
-                                <input type="text" id="llm-team" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="e.g. engineering">
+                                <input list="teams-list" id="llm-team" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="Search or type Team ID...">
+                                <datalist id="teams-list"></datalist>
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Max Budget ($)</label>
                                 <input type="number" id="llm-budget" step="0.01" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="e.g. 5.00">
                             </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Allowed Models <span class="text-[10px] text-gray-600 normal-case ml-2">(Comma separated, leave empty for all)</span></label>
-                                <input type="text" id="llm-models" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="gpt-4, claude-3-haiku">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Allowed Models <span class="text-[10px] text-gray-600 normal-case ml-2">(Comma separated)</span></label>
+                                <input type="text" id="llm-models" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="Select or type...">
                             </div>
                         </div>
                         <button onclick="generateLiteLLM()" class="bg-festool text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">1. Generate Key</button>

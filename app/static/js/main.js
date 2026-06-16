@@ -21,6 +21,27 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("Credential Portal loaded");
 });
 
+async function fetchLiteLLMOptions() {
+    try {
+        const response = await fetch('/api/litellm/options');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to fetch options');
+
+        const userList = document.getElementById('users-list');
+        const teamList = document.getElementById('teams-list');
+
+        if (data.users) {
+            userList.innerHTML = data.users.map(u => `<option value="${u.user_id}">${u.user_id} (${u.user_role})</option>`).join('');
+        }
+        if (data.teams) {
+            teamList.innerHTML = data.teams.map(t => `<option value="${t.team_id}">${t.team_alias || t.team_id}</option>`).join('');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Error loading LiteLLM options", "error");
+    }
+}
+
 function switchTab(tabId) {
     document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
     document.getElementById(`section-${tabId}`).classList.remove('hidden');
@@ -31,6 +52,10 @@ function switchTab(tabId) {
     const activeBtn = document.getElementById(`tab-${tabId}`);
     activeBtn.classList.remove('text-gray-400');
     activeBtn.classList.add('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
+
+    if (tabId === 'litellm') {
+        fetchLiteLLMOptions();
+    }
 }
 
 let lastGeneratedSSH = null;
@@ -115,6 +140,7 @@ async function syncSSH() {
 
 async function generateLiteLLM() {
     const key_alias = document.getElementById('llm-alias').value;
+    const key_type = document.getElementById('llm-key-type').value;
     const user_id = document.getElementById('llm-user').value || null;
     const team_id = document.getElementById('llm-team').value || null;
     const max_budget = parseFloat(document.getElementById('llm-budget').value) || null;
@@ -131,7 +157,7 @@ async function generateLiteLLM() {
         const response = await fetch('/api/generate-litellm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key_alias, user_id, team_id, max_budget, models })
+            body: JSON.stringify({ key_alias, user_id, team_id, max_budget, models, key_type })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Generation failed');
@@ -141,7 +167,8 @@ async function generateLiteLLM() {
             key: result.key_data.key, 
             alias: key_alias,
             user_id: user_id,
-            team_id: team_id
+            team_id: team_id,
+            key_type: key_type
         };
         showToast(result.message);
 
@@ -156,13 +183,17 @@ async function generateLiteLLM() {
                             <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-3 gap-4">
                         <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">User ID:</span>
+                            <span class="font-bold uppercase block text-gray-600 mb-1">Type:</span>
+                            <span class="font-mono text-festool uppercase">${key_type}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400">
+                            <span class="font-bold uppercase block text-gray-600 mb-1">User:</span>
                             <span class="font-mono text-festool">${user_id || 'None'}</span>
                         </div>
                         <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">Team ID:</span>
+                            <span class="font-bold uppercase block text-gray-600 mb-1">Team:</span>
                             <span class="font-mono text-festool">${team_id || 'None'}</span>
                         </div>
                     </div>
@@ -188,7 +219,8 @@ async function syncLiteLLM() {
                 key: lastGeneratedLiteLLM.key,
                 alias: lastGeneratedLiteLLM.alias,
                 user_id: lastGeneratedLiteLLM.user_id,
-                team_id: lastGeneratedLiteLLM.team_id
+                team_id: lastGeneratedLiteLLM.team_id,
+                key_type: lastGeneratedLiteLLM.key_type
             })
         });
         const result = await response.json();

@@ -8,7 +8,7 @@ from typing import Optional, List
 import httpx
 
 from app.services.ssh import generate_ssh_keypair
-from app.services.litellm import generate_virtual_key
+from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models
 from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item
 from app.database import is_setup_complete, set_secret, get_secret
 
@@ -42,6 +42,7 @@ class LiteLLMGenerateRequest(BaseModel):
     team_id: Optional[str] = None
     max_budget: Optional[float] = None
     models: Optional[List[str]] = None
+    key_type: Optional[str] = "api"
 
 class LiteLLMSyncRequest(BaseModel):
     name: str
@@ -49,6 +50,7 @@ class LiteLLMSyncRequest(BaseModel):
     alias: str
     user_id: Optional[str] = None
     team_id: Optional[str] = None
+    key_type: Optional[str] = None
 
 class ExternalCredentialRequest(BaseModel):
     name: str
@@ -79,7 +81,7 @@ class SetupRequest(BaseModel):
 @app.middleware("http")
 async def check_setup(request: Request, call_next):
     # Let static files and setup routes pass through
-    allowed_paths = ["/static", "/setup", "/api/setup", "/api/litellm/test", "/api/vaultwarden/login-test"]
+    allowed_paths = ["/static", "/setup", "/api/setup", "/api/litellm/test", "/api/vaultwarden/login-test", "/api/litellm/options"]
     
     is_allowed = any(request.url.path.startswith(p) for p in allowed_paths)
     
@@ -164,6 +166,20 @@ async def read_root(request: Request):
 async def health_check():
     return {"status": "ok"}
 
+@app.get("/api/litellm/options")
+async def api_get_litellm_options():
+    try:
+        teams = await get_litellm_teams()
+        users = await get_litellm_users()
+        models = await get_litellm_models()
+        return {
+            "teams": teams,
+            "users": users,
+            "models": models
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/generate-ssh")
 async def api_generate_ssh(req: SSHGenerateRequest):
     try:
@@ -202,7 +218,8 @@ async def api_generate_litellm(req: LiteLLMGenerateRequest):
             user_id=req.user_id,
             team_id=req.team_id,
             max_budget=req.max_budget,
-            models=req.models
+            models=req.models,
+            key_type=req.key_type
         )
         return {
             "status": "success",
@@ -218,7 +235,8 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         folder_id = get_secret("LITELLM_FOLDER_ID")
         fields = [
             {"name": "Virtual Key", "value": req.key, "type": 1},
-            {"name": "Alias", "value": req.alias, "type": 0}
+            {"name": "Alias", "value": req.alias, "type": 0},
+            {"name": "Key Type", "value": req.key_type if req.key_type else "api", "type": 0}
         ]
         if req.user_id:
             fields.append({"name": "Owned By (User ID)", "value": req.user_id, "type": 0})
