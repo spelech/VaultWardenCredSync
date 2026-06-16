@@ -115,6 +115,12 @@ async function syncSSH() {
 
 async function generateLiteLLM() {
     const name = document.getElementById('llm-name').value;
+    const user_role = document.getElementById('llm-role').value;
+    const max_budget = parseFloat(document.getElementById('llm-budget').value) || null;
+    const team_id = document.getElementById('llm-team').value || null;
+    const models_str = document.getElementById('llm-models').value;
+    const models = models_str ? models_str.split(',').map(m => m.trim()) : null;
+
     if (!name) return alert('Alias is required');
 
     const resultDiv = document.getElementById('llm-result');
@@ -125,7 +131,7 @@ async function generateLiteLLM() {
         const response = await fetch('/api/generate-litellm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
+            body: JSON.stringify({ name, user_role, max_budget, team_id, models })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Generation failed');
