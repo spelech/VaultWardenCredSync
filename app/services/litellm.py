@@ -97,3 +97,16 @@ async def get_litellm_models():
         if response.status_code == 200:
             return response.json().get("data", [])
         return []
+
+async def get_litellm_keys():
+    """Fetch all virtual key aliases from LiteLLM."""
+    url = get_secret("LITELLM_API_URL")
+    key = get_secret("LITELLM_MASTER_KEY")
+    if not url or not key: return []
+    
+    headers = {"Authorization": f"Bearer {key}"}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{url}/key/list", headers=headers, timeout=5.0)
+        if response.status_code == 200:
+            return [k.get("key_alias") for k in response.json().get("keys", []) if k.get("key_alias")]
+        return []

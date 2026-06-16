@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import bcrypt
 from pathlib import Path
 from cryptography.fernet import Fernet
 
@@ -56,6 +57,14 @@ def get_secret(key: str) -> str:
         f = get_fernet()
         return f.decrypt(row[0].encode()).decode()
     return None
+
+def hash_password(password: str) -> str:
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode(), salt).decode()
+
+def verify_password(password: str, hashed: str) -> bool:
+    if not hashed: return False
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 def is_setup_complete() -> bool:
     # We consider setup complete if Vaultwarden URL is configured

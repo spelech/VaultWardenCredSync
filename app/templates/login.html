@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Credential Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --festool-green: #009e5e;
+            --dark-gray: #111827;
+            --medium-gray: #1f2937;
+        }
+        .bg-festool { background-color: var(--festool-green); }
+        .text-festool { color: var(--festool-green); }
+        .ring-festool:focus { --tw-ring-color: var(--festool-green); }
+    </style>
+</head>
+<body class="bg-[#111827] min-h-screen text-gray-200 flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-[#1f2937] shadow-2xl rounded-xl p-8 border border-gray-700">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-black text-white">Secure Login</h1>
+            <p class="text-sm text-gray-500 mt-2 uppercase tracking-widest font-bold">Credential Portal Access</p>
+        </header>
+
+        <form id="login-form" class="space-y-6">
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Master Password</label>
+                <input type="password" id="password" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" required>
+            </div>
+
+            <button type="submit" class="w-full bg-festool text-white font-bold px-4 py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">Unlock Portal</button>
+            <div id="login-result" class="mt-4 hidden text-red-400 text-sm font-bold text-center"></div>
+        </form>
+    </div>
+    
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const resDiv = document.getElementById('login-result');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    resDiv.classList.remove('hidden');
+                    resDiv.innerText = 'Invalid credentials. Access Denied.';
+                }
+            } catch (err) {
+                resDiv.classList.remove('hidden');
+                resDiv.innerText = 'Network error. Try again.';
+            }
+        });
+    </script>
+</body>
+</html>

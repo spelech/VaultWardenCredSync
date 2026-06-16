@@ -1,16 +1,17 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional, List
 import httpx
+import uuid
 
 from app.services.ssh import generate_ssh_keypair
-from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models
-from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item
-from app.database import is_setup_complete, set_secret, get_secret
+from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys
+from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys
+from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
 app = FastAPI(title="Credential Portal", version="0.1.0")
 
@@ -77,20 +78,57 @@ class SetupRequest(BaseModel):
     litellm_folder_id: Optional[str] = None
     external_folder_id: Optional[str] = None
 
-# Middleware to check if setup is complete
+class LoginRequest(BaseModel):
+    password: str
+
+# Middleware to check if setup is complete and user is authenticated
 @app.middleware("http")
-async def check_setup(request: Request, call_next):
-    # Let static files and setup routes pass through
-    allowed_paths = ["/static", "/setup", "/api/setup", "/api/litellm/test", "/api/vaultwarden/login-test", "/api/litellm/options"]
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
     
-    is_allowed = any(request.url.path.startswith(p) for p in allowed_paths)
-    
-    if not is_allowed and not is_setup_complete():
-        if request.url.path.startswith("/api/"):
-            return HTMLResponse(content="Setup not complete", status_code=403)
-        return RedirectResponse(url="/setup")
+    # 1. Always allow static files
+    if path.startswith("/static"):
+        return await call_next(request)
         
+    # 2. Check Setup
+    if not is_setup_complete():
+        if path == "/setup" or path == "/api/setup" or path == "/api/vaultwarden/login-test":
+            return await call_next(request)
+        if path.startswith("/api/"):
+            return JSONResponse(status_code=403, content={"detail": "Setup not complete"})
+        return RedirectResponse(url="/setup")
+    
+    # 3. Check Auth (Session Cookie)
+    allowed_auth_paths = ["/login", "/api/login", "/setup", "/api/setup", "/api/vaultwarden/login-test"]
+    if path not in allowed_auth_paths:
+        session = request.cookies.get("portal_session")
+        if not session or session != get_secret("SESSION_ID"):
+            if path.startswith("/api/"):
+                return JSONResponse(status_code=401, content={"detail": "Not authenticated"})
+            return RedirectResponse(url="/login")
+            
     return await call_next(request)
+
+@app.get("/login", response_class=HTMLResponse)
+async def get_login(request: Request):
+    return templates.TemplateResponse(request=request, name="login.html")
+
+@app.post("/api/login")
+async def post_login(req: LoginRequest):
+    stored_hash = get_secret("PORTAL_PASSWORD_HASH")
+    if verify_password(req.password, stored_hash):
+        session_id = str(uuid.uuid4())
+        set_secret("SESSION_ID", session_id)
+        response = JSONResponse(content={"status": "success"})
+        response.set_cookie(key="portal_session", value=session_id, httponly=True)
+        return response
+    raise HTTPException(status_code=401, detail="Invalid password")
+
+@app.post("/api/logout")
+async def post_logout():
+    response = JSONResponse(content={"status": "success"})
+    response.delete_cookie("portal_session")
+    return response
 
 @app.get("/setup", response_class=HTMLResponse)
 async def get_setup(request: Request):
@@ -103,12 +141,9 @@ async def api_test_litellm(req: LiteLLMTestRequest):
     try:
         headers = {"Authorization": f"Bearer {req.key}"}
         async with httpx.AsyncClient() as client:
-            # Check version or health
             response = await client.get(f"{req.url}/health/readiness", headers=headers, timeout=5.0)
             if response.status_code != 200:
-                # Fallback
                 response = await client.get(f"{req.url}/models", headers=headers, timeout=5.0)
-            
             if response.status_code == 200:
                 return {"status": "success", "message": "LiteLLM connection verified."}
             else:
@@ -122,7 +157,6 @@ async def post_login_test(req: LoginTestRequest):
         session_token = initialize_vaultwarden_session(
             req.vw_url, req.vw_client_id, req.vw_client_secret, req.vw_password
         )
-        # Temporarily save session just to fetch folders
         set_secret("BW_SESSION", session_token)
         set_secret("VAULTWARDEN_URL", req.vw_url)
         folders = get_folders()
@@ -133,13 +167,9 @@ async def post_login_test(req: LoginTestRequest):
 @app.post("/api/setup")
 async def post_setup(req: SetupRequest):
     try:
-        print(f"DEBUG: Setup triggered for {req.vw_url}")
-        # Before saving, let's verify we can log into Vaultwarden
         session_token = initialize_vaultwarden_session(
             req.vw_url, req.vw_client_id, req.vw_client_secret, req.vw_password
         )
-        print("DEBUG: Vaultwarden session initialized successfully.")
-        
         set_secret("LITELLM_API_URL", req.litellm_url)
         set_secret("LITELLM_MASTER_KEY", req.litellm_key)
         set_secret("VAULTWARDEN_URL", req.vw_url)
@@ -148,14 +178,15 @@ async def post_setup(req: SetupRequest):
         set_secret("VAULTWARDEN_PASSWORD", req.vw_password)
         set_secret("BW_SESSION", session_token)
         
+        password_hash = hash_password(req.vw_password)
+        set_secret("PORTAL_PASSWORD_HASH", password_hash)
+
         if req.ssh_folder_id: set_secret("SSH_FOLDER_ID", req.ssh_folder_id)
         if req.litellm_folder_id: set_secret("LITELLM_FOLDER_ID", req.litellm_folder_id)
         if req.external_folder_id: set_secret("EXTERNAL_FOLDER_ID", req.external_folder_id)
         
-        print("DEBUG: All secrets saved. Setup complete.")
-        return {"status": "success", "message": "Setup completed"}
+        return {"status": "success", "message": "Setup completed. Login with Master Password."}
     except Exception as e:
-        print(f"ERROR in setup: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
@@ -166,17 +197,29 @@ async def read_root(request: Request):
 async def health_check():
     return {"status": "ok"}
 
+@app.get("/api/vaultwarden/ssh-keys")
+async def api_get_ssh_keys():
+    try:
+        names = get_existing_ssh_keys()
+        return {"keys": names}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/litellm/keys")
+async def api_get_litellm_keys():
+    try:
+        aliases = await get_litellm_keys()
+        return {"keys": aliases}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/litellm/options")
 async def api_get_litellm_options():
     try:
         teams = await get_litellm_teams()
         users = await get_litellm_users()
         models = await get_litellm_models()
-        return {
-            "teams": teams,
-            "users": users,
-            "models": models
-        }
+        return {"teams": teams, "users": users, "models": models}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -184,11 +227,7 @@ async def api_get_litellm_options():
 async def api_generate_ssh(req: SSHGenerateRequest):
     try:
         keys = generate_ssh_keypair(key_name=req.name, comment=req.comment, key_type=req.key_type)
-        return {
-            "status": "success",
-            "message": "SSH Key generated. Please review and sync.",
-            "keys": keys
-        }
+        return {"status": "success", "message": "SSH Key generated.", "keys": keys}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -196,36 +235,16 @@ async def api_generate_ssh(req: SSHGenerateRequest):
 async def api_sync_ssh(req: SSHSyncRequest):
     try:
         folder_id = get_secret("SSH_FOLDER_ID")
-        sync_result = create_ssh_key_item(
-            name=req.name,
-            private_key=req.private_key,
-            public_key=req.public_key,
-            folder_id=folder_id
-        )
-        return {
-            "status": "success",
-            "message": "SSH Key successfully synced to Vaultwarden.",
-            "vaultwarden": sync_result
-        }
+        sync_result = create_ssh_key_item(name=req.name, private_key=req.private_key, public_key=req.public_key, folder_id=folder_id)
+        return {"status": "success", "message": "SSH Key synced.", "vaultwarden": sync_result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-litellm")
 async def api_generate_litellm(req: LiteLLMGenerateRequest):
     try:
-        key_data = await generate_virtual_key(
-            key_alias=req.key_alias, 
-            user_id=req.user_id,
-            team_id=req.team_id,
-            max_budget=req.max_budget,
-            models=req.models,
-            key_type=req.key_type
-        )
-        return {
-            "status": "success",
-            "message": "LiteLLM Key generated. Please review and sync.",
-            "key_data": key_data
-        }
+        key_data = await generate_virtual_key(key_alias=req.key_alias, user_id=req.user_id, team_id=req.team_id, max_budget=req.max_budget, models=req.models, key_type=req.key_type)
+        return {"status": "success", "message": "LiteLLM Key generated.", "key_data": key_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -238,17 +257,10 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
             {"name": "Alias", "value": req.alias, "type": 0},
             {"name": "Key Type", "value": req.key_type if req.key_type else "api", "type": 0}
         ]
-        if req.user_id:
-            fields.append({"name": "Owned By (User ID)", "value": req.user_id, "type": 0})
-        if req.team_id:
-            fields.append({"name": "Team ID", "value": req.team_id, "type": 0})
-            
+        if req.user_id: fields.append({"name": "Owned By", "value": req.user_id, "type": 0})
+        if req.team_id: fields.append({"name": "Team ID", "value": req.team_id, "type": 0})
         sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
-        return {
-            "status": "success",
-            "message": "LiteLLM Key successfully synced to Vaultwarden.",
-            "vaultwarden": sync_result
-        }
+        return {"status": "success", "message": "LiteLLM Key synced.", "vaultwarden": sync_result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -256,15 +268,8 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
 async def api_store_external(req: ExternalCredentialRequest):
     try:
         folder_id = get_secret("EXTERNAL_FOLDER_ID")
-        fields = [
-            {"name": "Credential Data", "value": req.credential_data, "type": 1}
-        ]
+        fields = [{"name": "Credential Data", "value": req.credential_data, "type": 1}]
         sync_result = create_secure_login(name=req.name, fields=fields, folder_id=folder_id)
-        
-        return {
-            "status": "success",
-            "message": "External credential synced to Vaultwarden.",
-            "vaultwarden": sync_result
-        }
+        return {"status": "success", "message": "Credential synced.", "vaultwarden": sync_result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
