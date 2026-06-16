@@ -37,17 +37,18 @@ class SSHSyncRequest(BaseModel):
     public_key: str
 
 class LiteLLMGenerateRequest(BaseModel):
-    name: str
-    models: Optional[List[str]] = None
-    user_role: Optional[str] = "internal_user"
+    key_alias: str
+    user_id: Optional[str] = None
     team_id: Optional[str] = None
     max_budget: Optional[float] = None
+    models: Optional[List[str]] = None
 
 class LiteLLMSyncRequest(BaseModel):
     name: str
     key: str
     alias: str
-    key_type: Optional[str] = None
+    user_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 class ExternalCredentialRequest(BaseModel):
     name: str
@@ -197,11 +198,11 @@ async def api_sync_ssh(req: SSHSyncRequest):
 async def api_generate_litellm(req: LiteLLMGenerateRequest):
     try:
         key_data = await generate_virtual_key(
-            key_alias=req.name, 
-            models=req.models,
-            user_role=req.user_role,
+            key_alias=req.key_alias, 
+            user_id=req.user_id,
             team_id=req.team_id,
-            max_budget=req.max_budget
+            max_budget=req.max_budget,
+            models=req.models
         )
         return {
             "status": "success",
@@ -217,9 +218,13 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         folder_id = get_secret("LITELLM_FOLDER_ID")
         fields = [
             {"name": "Virtual Key", "value": req.key, "type": 1},
-            {"name": "Alias", "value": req.alias, "type": 0},
-            {"name": "Key Type", "value": req.key_type if req.key_type else "api", "type": 0}
+            {"name": "Alias", "value": req.alias, "type": 0}
         ]
+        if req.user_id:
+            fields.append({"name": "Owned By (User ID)", "value": req.user_id, "type": 0})
+        if req.team_id:
+            fields.append({"name": "Team ID", "value": req.team_id, "type": 0})
+            
         sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         return {
             "status": "success",

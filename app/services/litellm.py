@@ -3,12 +3,12 @@ from app.database import get_secret
 
 async def generate_virtual_key(
     key_alias: str, 
-    models: list = None, 
-    user_role: str = None, 
+    user_id: str = None, 
     team_id: str = None, 
-    max_budget: float = None
+    max_budget: float = None,
+    models: list = None
 ):
-    """Generates a virtual key in LiteLLM with advanced options."""
+    """Generates a virtual key in LiteLLM following official API schema."""
     litellm_api_url = get_secret("LITELLM_API_URL")
     litellm_master_key = get_secret("LITELLM_MASTER_KEY")
     
@@ -21,26 +21,14 @@ async def generate_virtual_key(
     }
     
     payload = {"key_alias": key_alias}
-    
-    # Map user-friendly "Key Type" to LiteLLM roles/routes
-    if user_role == "api":
-        payload["user_role"] = "internal_user"
-    elif user_role == "mgmt":
-        payload["user_role"] = "proxy_admin"
-        payload["allowed_routes"] = ["/key/*", "/user/*", "/team/*", "/model/*", "/health/*", "/config/*", "/ui/*"]
-    elif user_role == "both":
-        payload["user_role"] = "proxy_admin"
-    elif user_role == "team":
-        payload["user_role"] = "team"
-    elif user_role:
-        payload["user_role"] = user_role
-
-    if models:
-        payload["models"] = models
+    if user_id:
+        payload["user_id"] = user_id
     if team_id:
         payload["team_id"] = team_id
     if max_budget is not None:
         payload["max_budget"] = max_budget
+    if models:
+        payload["models"] = models
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -58,6 +46,8 @@ async def generate_virtual_key(
         return {
             "key": data.get("key"),
             "key_alias": key_alias,
+            "user_id": user_id,
+            "team_id": team_id,
             "models": data.get("models", []),
             "key_name": data.get("key_name")
         }
