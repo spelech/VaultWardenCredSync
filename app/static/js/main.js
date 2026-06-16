@@ -114,14 +114,14 @@ async function syncSSH() {
 }
 
 async function generateLiteLLM() {
-    const name = document.getElementById('llm-name').value;
-    const key_type = document.getElementById('llm-role').value;
-    const max_budget = parseFloat(document.getElementById('llm-budget').value) || null;
+    const key_alias = document.getElementById('llm-alias').value;
+    const user_id = document.getElementById('llm-user').value || null;
     const team_id = document.getElementById('llm-team').value || null;
+    const max_budget = parseFloat(document.getElementById('llm-budget').value) || null;
     const models_str = document.getElementById('llm-models').value;
     const models = models_str ? models_str.split(',').map(m => m.trim()) : null;
 
-    if (!name) return alert('Alias is required');
+    if (!key_alias) return alert('Key Alias is required');
 
     const resultDiv = document.getElementById('llm-result');
     resultDiv.classList.remove('hidden');
@@ -131,12 +131,18 @@ async function generateLiteLLM() {
         const response = await fetch('/api/generate-litellm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, user_role: key_type, max_budget, team_id, models })
+            body: JSON.stringify({ key_alias, user_id, team_id, max_budget, models })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Generation failed');
 
-        lastGeneratedLiteLLM = { name, key_type, ...result.key_data };
+        lastGeneratedLiteLLM = { 
+            name: key_alias, 
+            key: result.key_data.key, 
+            alias: key_alias,
+            user_id: user_id,
+            team_id: team_id
+        };
         showToast(result.message);
 
         resultDiv.innerHTML = `
@@ -150,9 +156,15 @@ async function generateLiteLLM() {
                             <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
                         </div>
                     </div>
-                    <div class="flex items-center text-xs text-gray-400">
-                        <span class="mr-2 font-bold uppercase text-[10px]">Type:</span>
-                        <span class="bg-[#111827] px-2 py-1 rounded border border-gray-700 font-mono text-festool uppercase">${key_type}</span>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="text-[10px] text-gray-400">
+                            <span class="font-bold uppercase block text-gray-600 mb-1">User ID:</span>
+                            <span class="font-mono text-festool">${user_id || 'None'}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400">
+                            <span class="font-bold uppercase block text-gray-600 mb-1">Team ID:</span>
+                            <span class="font-mono text-festool">${team_id || 'None'}</span>
+                        </div>
                     </div>
                 </div>
                 <button onclick="syncLiteLLM()" class="mt-6 w-full bg-festool text-white font-bold py-3 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
@@ -174,8 +186,9 @@ async function syncLiteLLM() {
             body: JSON.stringify({
                 name: lastGeneratedLiteLLM.name,
                 key: lastGeneratedLiteLLM.key,
-                alias: lastGeneratedLiteLLM.key_alias,
-                key_type: lastGeneratedLiteLLM.key_type
+                alias: lastGeneratedLiteLLM.alias,
+                user_id: lastGeneratedLiteLLM.user_id,
+                team_id: lastGeneratedLiteLLM.team_id
             })
         });
         const result = await response.json();
