@@ -100,7 +100,7 @@ async def auth_middleware(request: Request, call_next):
         return RedirectResponse(url="/setup")
     
     # 3. Check Auth (Session Cookie)
-    allowed_auth_paths = ["/login", "/api/login", "/setup", "/api/setup", "/api/vaultwarden/login-test"]
+    allowed_auth_paths = ["/login", "/api/login", "/setup", "/api/setup", "/api/vaultwarden/login-test", "/api/health"]
     if path not in allowed_auth_paths:
         session = request.cookies.get("portal_session")
         if not session or session != get_secret("SESSION_ID"):

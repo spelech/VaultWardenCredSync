@@ -3,118 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Setup - Credential Portal</title>
+    <title>Setup - QuickCreds</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --festool-green: #009e5e;
-            --dark-gray: #111827;
-            --medium-gray: #1f2937;
+            --prussian-blue: #031d44;
+            --deep-space: #04395e;
+            --muted-teal: #70a288;
+            --tan: #dab785;
+            --burnt-peach: #d5896f;
         }
-        .bg-festool { background-color: var(--festool-green); }
-        .text-festool { color: var(--festool-green); }
-        .border-festool { border-color: var(--festool-green); }
-        .ring-festool:focus { --tw-ring-color: var(--festool-green); }
+        body { background-color: var(--prussian-blue); }
+        .bg-deep { background-color: var(--deep-space); }
+        .bg-teal { background-color: var(--muted-teal); }
+        .text-teal { color: var(--muted-teal); }
+        .text-tan { color: var(--tan); }
+        
+        .btn-primary { 
+            background-color: var(--muted-teal);
+            color: var(--prussian-blue);
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+        .input-dark {
+            background-color: #031d44;
+            border-color: transparent;
+            color: white;
+        }
+        .input-dark:focus {
+            --tw-ring-color: var(--muted-teal);
+            border-color: var(--muted-teal);
+        }
     </style>
 </head>
-<body class="bg-[#111827] min-h-screen text-gray-200 flex items-center justify-center p-4">
-    <div class="max-w-xl w-full bg-[#1f2937] shadow-2xl rounded-xl p-8 border border-gray-700">
-        <header class="mb-8 border-b border-gray-700 pb-6 text-center">
-            <h1 class="text-3xl font-extrabold text-white">Portal Setup</h1>
-            <p class="text-sm text-gray-400 mt-2">Initialize your secure credential environment.</p>
+<body class="min-h-screen text-gray-200 flex items-center justify-center p-4">
+    <div class="max-w-2xl w-full bg-deep shadow-2xl rounded-3xl p-10 border border-white/5">
+        <header class="mb-10 border-b border-white/5 pb-8">
+            <h1 class="text-4xl font-black text-white tracking-tighter">Initial <span class="text-tan">Setup</span></h1>
+            <p class="text-xs text-teal mt-2 uppercase tracking-widest font-bold">Configure your secure environment.</p>
         </header>
 
         <!-- Step 1: Auth -->
-        <div id="step-1" class="space-y-6">
+        <div id="step-1" class="space-y-8">
             <section>
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-lg text-festool flex items-center">
-                        <span class="mr-2">⚡</span> LiteLLM Configuration
-                    </h3>
-                </div>
-                <div class="space-y-4">
+                <h3 class="font-black text-sm uppercase tracking-widest text-teal mb-6 flex items-center">
+                    <span class="mr-3">⚡</span> LiteLLM Configuration
+                </h3>
+                <div class="space-y-5">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">API URL</label>
-                        <input type="text" id="litellm_url" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="http://litellm:4000" value="http://litellm:4000">
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">API URL</label>
+                        <input type="text" id="litellm_url" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition" placeholder="http://litellm:4000" value="http://litellm:4000">
                     </div>
                     <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Management Key</label>
-                            <button onclick="alert('Optionally generate an Admin Key using:\n\ncurl -X POST http://localhost:4000/user/new \\\n-H \'Authorization: Bearer <MASTER_KEY>\' \\\n-d \'{\"user_role\": \"proxy_admin\"}\'')" class="text-[10px] text-festool hover:underline uppercase">How to get an Admin Key? ↗</button>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Management Key</label>
+                            <button onclick="alert('Optionally generate an Admin Key using:\n\ncurl -X POST http://localhost:4000/user/new \\\n-H \'Authorization: Bearer <MASTER_KEY>\' \\\n-d \'{\"user_role\": \"proxy_admin\"}\'')" class="text-[9px] text-teal hover:underline uppercase font-bold">Get Admin Key ↗</button>
                         </div>
-                        <input type="password" id="litellm_key" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="sk-...">
+                        <input type="password" id="litellm_key" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition" placeholder="sk-...">
                     </div>
-                    <button onclick="testLiteLLM()" class="text-xs font-bold text-festool hover:underline uppercase tracking-widest">Validate LiteLLM Connection</button>
+                    <button onclick="testLiteLLM()" class="text-[10px] font-black text-teal hover:underline uppercase tracking-widest">Validate Connection</button>
                 </div>
             </section>
 
-            <section class="pt-6 border-t border-gray-700">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-lg text-festool flex items-center">
-                        <span class="mr-2">🔒</span> Vaultwarden / Bitwarden
-                    </h3>
-                </div>
-                <div class="space-y-4">
+            <section class="pt-8 border-t border-white/5">
+                <h3 class="font-black text-sm uppercase tracking-widest text-teal mb-6 flex items-center">
+                    <span class="mr-3">🔒</span> Vaultwarden / Bitwarden
+                </h3>
+                <div class="space-y-5">
                     <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Vault URL</label>
-                        </div>
-                        <input type="text" id="vw_url" oninput="updateVaultLink()" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition" placeholder="https://vault.domain.com">
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Vault URL</label>
+                        <input type="text" id="vw_url" oninput="updateVaultLink()" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition" placeholder="https://vault.domain.com">
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-6">
                         <div>
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Client ID</label>
-                                <a id="vw-key-link" href="#" target="_blank" class="text-[10px] text-festool hover:underline uppercase hidden">Find Keys ↗</a>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Client ID</label>
+                                <a id="vw-key-link" href="#" target="_blank" class="text-[9px] text-teal hover:underline uppercase hidden font-bold">Find ↗</a>
                             </div>
-                            <input type="text" id="vw_client_id" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition">
+                            <input type="text" id="vw_client_id" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition">
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Client Secret</label>
-                            <input type="password" id="vw_client_secret" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition">
+                            <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Client Secret</label>
+                            <input type="password" id="vw_client_secret" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Master Password</label>
-                        <p class="text-[10px] text-gray-500 mb-2 italic">Required by CLI to decrypt/encrypt vault items locally.</p>
-                        <input type="password" id="vw_password" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool focus:ring-1 focus:ring-festool outline-none transition">
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Master Password</label>
+                        <p class="text-[9px] text-gray-500 mb-2 italic">Required for local end-to-end encryption/decryption.</p>
+                        <input type="password" id="vw_password" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition">
                     </div>
-                    <button onclick="testVaultwarden()" class="text-xs font-bold text-festool hover:underline uppercase tracking-widest">Validate & Fetch Folders</button>
+                    <button onclick="testVaultwarden()" class="text-[10px] font-black text-teal hover:underline uppercase tracking-widest">Validate & Fetch Folders</button>
                 </div>
             </section>
 
-            <div id="setup-result" class="mt-4 p-4 rounded-lg hidden text-sm font-medium border border-transparent"></div>
+            <div id="setup-result" class="mt-4 p-4 rounded-xl hidden text-xs font-bold uppercase tracking-wider"></div>
 
-            <div class="pt-8">
-                <button id="next-btn" onclick="showStep2()" class="w-full bg-festool text-white font-bold px-4 py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            <div class="pt-10">
+                <button id="next-btn" onclick="showStep2()" class="btn-primary w-full font-black px-4 py-5 rounded-2xl shadow-lg uppercase tracking-widest text-sm disabled:opacity-30 disabled:cursor-not-allowed" disabled>
                     Next: Map Folders
                 </button>
             </div>
         </div>
 
         <!-- Step 2: Folders -->
-        <div id="step-2" class="space-y-6 hidden">
-            <h3 class="font-bold text-xl text-festool border-b border-gray-700 pb-4">Auto-Organization</h3>
-            <p class="text-sm text-gray-400">Select which folders generated items should be placed in.</p>
+        <div id="step-2" class="space-y-8 hidden">
+            <h3 class="font-black text-sm uppercase tracking-widest text-teal border-b border-white/5 pb-6">Auto-Organization</h3>
+            <p class="text-xs text-gray-400">Assign default folders for generated credentials.</p>
             
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">SSH Keys Folder</label>
-                    <select id="ssh_folder" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition cursor-pointer"></select>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">SSH Keys Folder</label>
+                    <select id="ssh_folder" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition cursor-pointer"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">LiteLLM Keys Folder</label>
-                    <select id="litellm_folder" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition cursor-pointer"></select>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">LiteLLM Keys Folder</label>
+                    <select id="litellm_folder" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition cursor-pointer"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">External Creds Folder</label>
-                    <select id="ext_folder" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition cursor-pointer"></select>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">External Creds Folder</label>
+                    <select id="ext_folder" class="block w-full rounded-xl input-dark shadow-inner border p-4 outline-none transition cursor-pointer"></select>
                 </div>
             </div>
 
-            <div class="pt-8 flex space-x-4">
-                <button onclick="hideStep2()" class="flex-1 bg-gray-700 text-white font-bold px-4 py-4 rounded-xl hover:bg-gray-600 transition">Back</button>
-                <button onclick="completeSetup()" class="flex-[2] bg-festool text-white font-bold px-4 py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">Complete Setup</button>
+            <div class="pt-10 flex space-x-6">
+                <button onclick="hideStep2()" class="flex-1 bg-white/5 text-white font-black px-4 py-5 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-sm">Back</button>
+                <button onclick="completeSetup()" class="btn-primary flex-[2] font-black px-4 py-5 rounded-2xl shadow-lg uppercase tracking-widest text-sm">Complete Setup</button>
             </div>
         </div>
     </div>
@@ -125,9 +141,9 @@
         function showToast(message, type = 'success') {
             const toastContainer = document.getElementById('toast-container') || createToastContainer();
             const toast = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-festool' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
-            toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-between min-w-[300px] transform translate-y-10 opacity-0 transition-all duration-300 ease-out border border-white/10 mb-3`;
-            toast.innerHTML = `<span class="font-bold text-sm">${message}</span><button onclick="this.parentElement.remove()" class="ml-4 text-white/50 hover:text-white">✕</button>`;
+            const bgColor = type === 'success' ? 'bg-teal' : type === 'error' ? 'bg-burnt-peach' : 'bg-blue-600';
+            toast.className = `${bgColor} text-prussian-blue px-6 py-3 rounded-xl shadow-2xl flex items-center justify-between min-w-[300px] transform translate-y-10 opacity-0 transition-all duration-300 ease-out mb-3`;
+            toast.innerHTML = `<span class="font-black text-xs uppercase tracking-widest">${message}</span>`;
             toastContainer.appendChild(toast);
             setTimeout(() => { toast.classList.remove('translate-y-10', 'opacity-0'); toast.classList.add('translate-y-0', 'opacity-100'); }, 10);
             setTimeout(() => { toast.classList.add('opacity-0', 'translate-x-10'); setTimeout(() => toast.remove(), 300); }, 4000);
@@ -146,7 +162,6 @@
             const link = document.getElementById('vw-key-link');
             if (url && url.startsWith('http')) {
                 const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-                // Updated to go to Account Settings directly
                 link.href = `${cleanUrl}/#/settings/security/keys`;
                 link.classList.remove('hidden');
             } else {
@@ -155,12 +170,11 @@
         }
 
         function showResult(msg, type = 'info') {
-            showToast(msg, type === 'info' ? 'info' : type);
+            showToast(msg, type);
             const div = document.getElementById('setup-result');
-            div.classList.remove('hidden', 'bg-blue-900/30', 'text-blue-400', 'border-blue-500/30', 'bg-green-900/30', 'text-green-400', 'border-green-500/30', 'bg-red-900/30', 'text-red-400', 'border-red-500/30');
-            if (type === 'info') div.classList.add('bg-blue-900/30', 'text-blue-400', 'border-blue-500/30');
-            if (type === 'success') div.classList.add('bg-green-900/30', 'text-green-400', 'border-green-500/30');
-            if (type === 'error') div.classList.add('bg-red-900/30', 'text-red-400', 'border-red-500/30');
+            div.classList.remove('hidden', 'bg-teal/10', 'text-teal', 'bg-burnt-peach/10', 'text-burnt-peach');
+            if (type === 'success') div.classList.add('bg-teal/10', 'text-teal');
+            if (type === 'error') div.classList.add('bg-burnt-peach/10', 'text-burnt-peach');
             div.innerHTML = msg;
         }
 
@@ -168,19 +182,17 @@
             const url = document.getElementById('litellm_url').value;
             const key = document.getElementById('litellm_key').value;
             if (!url || !key) return alert('URL and Key are required');
-
-            showResult('Testing LiteLLM connection...', 'info');
+            showResult('Testing connection...', 'info');
             try {
                 const res = await fetch('/api/litellm/test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, key })
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Test failed');
+                if (!res.ok) throw new Error('Test failed');
                 showResult('✅ LiteLLM connection verified.', 'success');
             } catch (err) {
-                showResult('❌ LiteLLM Error: ' + err.message, 'error');
+                showResult('❌ LiteLLM Error', 'error');
             }
         }
 
@@ -189,12 +201,8 @@
             const vw_client_id = document.getElementById('vw_client_id').value;
             const vw_client_secret = document.getElementById('vw_client_secret').value;
             const vw_password = document.getElementById('vw_password').value;
-
-            if (!vw_url || !vw_client_id || !vw_client_secret || !vw_password) {
-                return alert('All Vaultwarden fields are required');
-            }
-
-            showResult('Authenticating with Vaultwarden...', 'info');
+            if (!vw_url || !vw_client_id || !vw_client_secret || !vw_password) return alert('All fields required');
+            showResult('Authenticating...', 'info');
             try {
                 const res = await fetch('/api/vaultwarden/login-test', {
                     method: 'POST',
@@ -202,31 +210,25 @@
                     body: JSON.stringify({ vw_url, vw_client_id, vw_client_secret, vw_password })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Authentication failed');
-
-                showResult('✅ Vaultwarden verified. Folders loaded.', 'success');
+                if (!res.ok) throw new Error('Auth failed');
+                showResult('✅ Vaultwarden verified.', 'success');
                 setupData = { vw_url, vw_client_id, vw_client_secret, vw_password };
-                
                 const folders = data.folders || [];
-                const optionsHtml = '<option value="">-- No Folder (Root) --</option>' + 
+                const optionsHtml = '<option value="">-- No Folder --</option>' + 
                     folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
-                
                 document.getElementById('ssh_folder').innerHTML = optionsHtml;
                 document.getElementById('litellm_folder').innerHTML = optionsHtml;
                 document.getElementById('ext_folder').innerHTML = optionsHtml;
-                
                 document.getElementById('next-btn').disabled = false;
             } catch (err) {
-                showResult('❌ Vaultwarden Error: ' + err.message, 'error');
+                showResult('❌ Vaultwarden Error', 'error');
             }
         }
 
         function showStep2() {
             document.getElementById('step-1').classList.add('hidden');
             document.getElementById('step-2').classList.remove('hidden');
-            window.scrollTo(0, 0);
         }
-
         function hideStep2() {
             document.getElementById('step-2').classList.add('hidden');
             document.getElementById('step-1').classList.remove('hidden');
@@ -238,22 +240,17 @@
             setupData.ssh_folder_id = document.getElementById('ssh_folder').value || null;
             setupData.litellm_folder_id = document.getElementById('litellm_folder').value || null;
             setupData.external_folder_id = document.getElementById('ext_folder').value || null;
-
-            showResult('Finalizing setup...', 'info');
             try {
                 const response = await fetch('/api/setup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(setupData)
                 });
-                
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.detail || 'Setup failed');
-
+                if (!response.ok) throw new Error('Setup failed');
                 showResult('🎉 Setup complete! Redirecting...', 'success');
                 setTimeout(() => window.location.href = '/', 1200);
             } catch (err) {
-                showResult('❌ Setup Error: ' + err.message, 'error');
+                showResult('❌ Setup Error', 'error');
             }
         }
     </script>

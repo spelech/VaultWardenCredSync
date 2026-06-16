@@ -1,24 +1,48 @@
 function showToast(message, type = 'success') {
     const toastContainer = document.getElementById('toast-container') || createToastContainer();
     const toast = document.createElement('div');
-    const bgColor = type === 'success' ? 'bg-festool' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
-    toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center justify-between min-w-[300px] transform translate-y-10 opacity-0 transition-all duration-300 ease-out border border-white/10 mb-3`;
-    toast.innerHTML = `<span class="font-bold text-sm">${message}</span><button onclick="this.parentElement.remove()" class="ml-4 text-white/50 hover:text-white">✕</button>`;
+    
+    // palette mapping: prussian blue #031d44, deep space #04395e, muted teal #70a288, tan #dab785, burnt peach #d5896f
+    const bgColor = type === 'success' ? 'bg-[#70a288]' : type === 'error' ? 'bg-[#d5896f]' : 'bg-[#04395e]';
+    
+    toast.className = `${bgColor} text-[#031d44] px-8 py-4 rounded-2xl shadow-2xl flex items-center justify-between min-w-[320px] transform translate-y-10 opacity-0 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] border border-white/10 mb-4`;
+    toast.innerHTML = `
+        <span class="font-black text-xs uppercase tracking-widest">${message}</span>
+        <button onclick="this.parentElement.remove()" class="ml-6 text-[#031d44]/50 hover:text-[#031d44]">✕</button>
+    `;
+    
     toastContainer.appendChild(toast);
-    setTimeout(() => { toast.classList.remove('translate-y-10', 'opacity-0'); toast.classList.add('translate-y-0', 'opacity-100'); }, 10);
-    setTimeout(() => { toast.classList.add('opacity-0', 'translate-x-10'); setTimeout(() => toast.remove(), 300); }, 4000);
+    
+    setTimeout(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+    }, 10);
+    
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-x-10');
+        setTimeout(() => toast.remove(), 500);
+    }, 4500);
 }
 
 function createToastContainer() {
     const container = document.createElement('div');
     container.id = 'toast-container';
-    container.className = 'fixed bottom-8 right-8 z-[100] flex flex-col items-end';
+    container.className = 'fixed bottom-10 right-10 z-[100] flex flex-col items-end';
     document.body.appendChild(container);
     return container;
 }
 
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login';
+    } catch (err) {
+        window.location.href = '/login';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Credential Portal loaded");
+    console.log("QuickCreds Terminal Online");
 });
 
 let lastGeneratedSSH = null;
@@ -43,7 +67,7 @@ async function fetchLiteLLMOptions() {
         }
     } catch (err) {
         console.error(err);
-        showToast("Error loading LiteLLM options", "error");
+        showToast("Error loading terminal metadata", "error");
     }
 }
 
@@ -55,24 +79,23 @@ async function fetchExistingKeys() {
         ]);
         const sshData = await sshRes.json();
         const llmData = await llmRes.json();
-        
         existingSSHKeys = sshData.keys || [];
         existingLiteLLMKeys = llmData.keys || [];
     } catch (err) {
-        console.error("Failed to fetch existing keys", err);
+        console.error("Failed to fetch existing vault items", err);
     }
 }
 
 function switchTab(tabId) {
     document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
     document.getElementById(`section-${tabId}`).classList.remove('hidden');
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
+    document.querySelectorAll('.sidebar-btn').forEach(b => {
+        b.classList.remove('active');
         b.classList.add('text-gray-400');
     });
     const activeBtn = document.getElementById(`tab-${tabId}`);
     activeBtn.classList.remove('text-gray-400');
-    activeBtn.classList.add('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
+    activeBtn.classList.add('active');
 
     fetchExistingKeys();
     if (tabId === 'litellm') {
@@ -84,11 +107,11 @@ async function generateSSH() {
     const name = document.getElementById('ssh-name').value;
     const comment = document.getElementById('ssh-comment').value;
     const key_type = document.getElementById('ssh-type').value;
-    if (!name) return alert('Name is required');
+    if (!name) return alert('Key name required');
 
     let overwrite = false;
     if (existingSSHKeys.includes(name)) {
-        if (confirm(`An SSH key named "${name}" already exists. Overwrite existing item?`)) {
+        if (confirm(`An SSH key named "${name}" already exists. Overwrite existing vault item?`)) {
             overwrite = true;
         } else {
             return;
@@ -97,7 +120,7 @@ async function generateSSH() {
 
     const resultDiv = document.getElementById('ssh-result');
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse font-bold text-xs uppercase tracking-widest">⚙️ Generating Secure Keys...</p>';
+    resultDiv.innerHTML = '<p class="text-teal animate-pulse font-black text-xs uppercase tracking-widest">⚙️ Running ssh-keygen...</p>';
 
     try {
         const response = await fetch('/api/generate-ssh', {
@@ -112,40 +135,40 @@ async function generateSSH() {
         showToast(result.message);
 
         resultDiv.innerHTML = `
-            <div class="bg-blue-900/20 border border-blue-500/30 rounded-xl p-6 mt-6">
-                <h3 class="text-white font-bold mb-4 flex items-center"><span class="mr-2">👁️</span> Review & Sync</h3>
-                <div class="space-y-4">
+            <div class="bg-[#031d44]/50 border border-[#70a288]/20 rounded-3xl p-8 mt-10">
+                <h3 class="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center"><span class="mr-3">👁️</span> Secure Review Stage</h3>
+                <div class="space-y-6">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Public Key</label>
+                        <label class="block text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2">Public Key</label>
                         <div class="relative">
-                            <textarea id="preview-ssh-pub" readonly rows="2" class="w-full bg-[#111827] text-festool p-3 text-xs font-mono border border-gray-700 rounded-lg focus:outline-none">${result.keys.public_key}</textarea>
-                            <button onclick="copyToClipboard(this)" class="absolute top-2 right-2 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                            <textarea id="preview-ssh-pub" readonly rows="2" class="w-full bg-[#031d44] text-teal p-4 text-xs font-mono border border-white/5 rounded-xl focus:outline-none shadow-inner">${result.keys.public_key}</textarea>
+                            <button onclick="copyToClipboard(this)" class="absolute top-4 right-4 text-gray-500 hover:text-tan text-[9px] font-black uppercase tracking-tighter">Copy</button>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Private Key (Hidden in Bitwarden)</label>
+                        <label class="block text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2">Private Key (Masked in Vault)</label>
                         <div class="relative">
-                            <textarea id="preview-ssh-priv" readonly rows="4" class="w-full bg-[#111827] text-festool p-3 text-xs font-mono border border-gray-700 rounded-lg focus:outline-none">${result.keys.private_key}</textarea>
-                            <button onclick="copyToClipboard(this)" class="absolute top-2 right-2 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                            <textarea id="preview-ssh-priv" readonly rows="4" class="w-full bg-[#031d44] text-teal p-4 text-xs font-mono border border-white/5 rounded-xl focus:outline-none shadow-inner">${result.keys.private_key}</textarea>
+                            <button onclick="copyToClipboard(this)" class="absolute top-4 right-4 text-gray-500 hover:text-tan text-[9px] font-black uppercase tracking-tighter">Copy</button>
                         </div>
                     </div>
                 </div>
-                <div class="flex space-x-4 mt-6">
-                    <button onclick="downloadFile('${name}.pub', lastGeneratedSSH.public_key)" class="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl hover:bg-gray-600 transition">Download .pub</button>
-                    <button onclick="downloadFile('${name}.pem', lastGeneratedSSH.private_key)" class="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl hover:bg-gray-600 transition">Download .pem</button>
+                <div class="flex space-x-4 mt-8">
+                    <button onclick="downloadFile('${name}.pub', lastGeneratedSSH.public_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download .pub</button>
+                    <button onclick="downloadFile('${name}.pem', lastGeneratedSSH.private_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download .pem</button>
                 </div>
-                <button onclick="syncSSH()" class="mt-4 w-full bg-festool text-white font-bold py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
+                <button onclick="syncSSH()" class="btn-primary mt-6 w-full font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm">2. Transmit to Vaultwarden</button>
             </div>
         `;
     } catch (err) {
         showToast(err.message, 'error');
-        resultDiv.innerHTML = `<div class="bg-red-900/20 border border-red-500/30 rounded-xl p-6 mt-6 text-red-400 font-bold">Error: ${err.message}</div>`;
+        resultDiv.innerHTML = `<div class="bg-burnt-peach/10 border border-burnt-peach/30 rounded-2xl p-6 mt-6 text-burnt-peach font-black text-xs uppercase tracking-widest">Transaction Failure: ${err.message}</div>`;
     }
 }
 
 async function syncSSH() {
     if (!lastGeneratedSSH) return;
-    showToast("Syncing to Vaultwarden...", "info");
+    showToast("Transmitting data...", "info");
     try {
         const response = await fetch('/api/sync-ssh', {
             method: 'POST',
@@ -158,12 +181,12 @@ async function syncSSH() {
             })
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Sync failed');
-        showToast("SSH Key securely stored in Vaultwarden!");
+        if (!response.ok) throw new Error(result.detail || 'Transmission failed');
+        showToast("Encrypted and stored in Vaultwarden");
         document.getElementById('ssh-result').innerHTML = `
-            <div class="bg-green-900/20 border border-festool/30 rounded-xl p-6 mt-6">
-                <p class="text-festool font-bold flex items-center"><span class="mr-2">✅</span> Successfully Synced to Vaultwarden</p>
-                <p class="text-xs text-gray-400 mt-2 italic">The key is now safely stored in your designated folder.</p>
+            <div class="bg-teal/10 border border-teal/30 rounded-3xl p-10 mt-10">
+                <p class="text-teal font-black text-xs uppercase tracking-[0.2em] flex items-center"><span class="mr-3 text-lg">✅</span> Vault Transmission Complete</p>
+                <p class="text-[11px] text-gray-500 mt-4 italic leading-relaxed">The item has been securely provisioned to your designated SSH folder.</p>
             </div>
         `;
     } catch (err) {
@@ -180,16 +203,16 @@ async function generateLiteLLM() {
     const models_str = document.getElementById('llm-models').value;
     const models = models_str ? models_str.split(',').map(m => m.trim()) : null;
 
-    if (!key_alias) return alert('Key Alias is required');
+    if (!key_alias) return alert('Alias required');
 
     if (existingLiteLLMKeys.includes(key_alias)) {
-        showToast(`Error: A key with alias "${key_alias}" already exists. Use a unique name.`, "error");
+        showToast(`Terminal Error: Alias "${key_alias}" already in use.`, "error");
         return;
     }
 
     const resultDiv = document.getElementById('llm-result');
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse font-bold text-xs uppercase tracking-widest">⚙️ Requesting Key...</p>';
+    resultDiv.innerHTML = '<p class="text-teal animate-pulse font-black text-xs uppercase tracking-widest">⚙️ Polling Proxy API...</p>';
 
     try {
         const response = await fetch('/api/generate-litellm', {
@@ -198,59 +221,52 @@ async function generateLiteLLM() {
             body: JSON.stringify({ key_alias, user_id, team_id, max_budget, models, key_type })
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Generation failed');
+        if (!response.ok) throw new Error(result.detail || 'API Call failed');
 
-        lastGeneratedLiteLLM = { 
-            name: key_alias, 
-            key: result.key_data.key, 
-            alias: key_alias,
-            user_id: user_id,
-            team_id: team_id,
-            key_type: key_type
-        };
+        lastGeneratedLiteLLM = { name: key_alias, key: result.key_data.key, alias: key_alias, user_id, team_id, key_type };
         showToast(result.message);
 
         resultDiv.innerHTML = `
-            <div class="bg-blue-900/20 border border-blue-500/30 rounded-xl p-6 mt-6">
-                <h3 class="text-white font-bold mb-4 flex items-center"><span class="mr-2">👁️</span> Review & Sync</h3>
-                <div class="space-y-4">
+            <div class="bg-[#031d44]/50 border border-[#70a288]/20 rounded-3xl p-8 mt-10">
+                <h3 class="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center"><span class="mr-3">👁️</span> Secure Review Stage</h3>
+                <div class="space-y-6">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Generated Virtual Key</label>
+                        <label class="block text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2">Virtual Key</label>
                         <div class="relative">
-                            <input type="text" readonly class="w-full bg-[#111827] text-festool p-3 text-sm font-mono border border-gray-700 rounded-lg focus:outline-none" value="${result.key_data.key}">
-                            <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                            <input type="text" readonly class="w-full bg-[#031d44] text-teal p-4 text-xs font-mono border border-white/5 rounded-xl focus:outline-none shadow-inner" value="${result.key_data.key}">
+                            <button onclick="copyToClipboard(this)" class="absolute top-4 right-4 text-gray-500 hover:text-tan text-[9px] font-black uppercase tracking-tighter">Copy</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-4">
-                        <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">Type:</span>
-                            <span class="font-mono text-festool uppercase">${key_type}</span>
+                    <div class="grid grid-cols-3 gap-6">
+                        <div class="bg-[#031d44] p-3 rounded-xl border border-white/5">
+                            <span class="block text-[8px] font-black text-gray-600 uppercase mb-1">Type</span>
+                            <span class="text-[10px] font-mono text-tan uppercase">${key_type}</span>
                         </div>
-                        <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">User:</span>
-                            <span class="font-mono text-festool">${user_id || 'None'}</span>
+                        <div class="bg-[#031d44] p-3 rounded-xl border border-white/5">
+                            <span class="block text-[8px] font-black text-gray-600 uppercase mb-1">User</span>
+                            <span class="text-[10px] font-mono text-tan truncate">${user_id || 'None'}</span>
                         </div>
-                        <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">Team:</span>
-                            <span class="font-mono text-festool">${team_id || 'None'}</span>
+                        <div class="bg-[#031d44] p-3 rounded-xl border border-white/5">
+                            <span class="block text-[8px] font-black text-gray-600 uppercase mb-1">Team</span>
+                            <span class="text-[10px] font-mono text-tan truncate">${team_id || 'None'}</span>
                         </div>
                     </div>
                 </div>
-                <div class="flex space-x-4 mt-6">
-                    <button onclick="downloadFile('${key_alias}.txt', lastGeneratedLiteLLM.key)" class="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl hover:bg-gray-600 transition">Download .txt</button>
+                <div class="flex space-x-4 mt-8">
+                    <button onclick="downloadFile('${key_alias}.txt', lastGeneratedLiteLLM.key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download .txt</button>
                 </div>
-                <button onclick="syncLiteLLM()" class="mt-4 w-full bg-festool text-white font-bold py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
+                <button onclick="syncLiteLLM()" class="btn-primary mt-6 w-full font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm">2. Transmit to Vaultwarden</button>
             </div>
         `;
     } catch (err) {
         showToast(err.message, 'error');
-        resultDiv.innerHTML = `<div class="bg-red-900/20 border border-red-500/30 rounded-xl p-6 mt-6 text-red-400 font-bold">Error: ${err.message}</div>`;
+        resultDiv.innerHTML = `<div class="bg-burnt-peach/10 border border-burnt-peach/30 rounded-2xl p-6 mt-6 text-burnt-peach font-black text-xs uppercase tracking-widest">Transaction Failure: ${err.message}</div>`;
     }
 }
 
 async function syncLiteLLM() {
     if (!lastGeneratedLiteLLM) return;
-    showToast("Syncing to Vaultwarden...", "info");
+    showToast("Transmitting data...", "info");
     try {
         const response = await fetch('/api/sync-litellm', {
             method: 'POST',
@@ -265,11 +281,11 @@ async function syncLiteLLM() {
             })
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Sync failed');
-        showToast("LiteLLM Key securely stored in Vaultwarden!");
+        if (!response.ok) throw new Error(result.detail || 'Transmission failed');
+        showToast("Stored in Vaultwarden");
         document.getElementById('llm-result').innerHTML = `
-            <div class="bg-green-900/20 border border-festool/30 rounded-xl p-6 mt-6">
-                <p class="text-festool font-bold flex items-center"><span class="mr-2">✅</span> Successfully Synced to Vaultwarden</p>
+            <div class="bg-teal/10 border border-teal/30 rounded-3xl p-10 mt-10">
+                <p class="text-teal font-black text-xs uppercase tracking-[0.2em] flex items-center"><span class="mr-3 text-lg">✅</span> Vault Transmission Complete</p>
             </div>
         `;
     } catch (err) {
@@ -280,11 +296,11 @@ async function syncLiteLLM() {
 async function storeExternal() {
     const name = document.getElementById('ext-name').value;
     const credential_data = document.getElementById('ext-data').value;
-    if (!name || !credential_data) return alert('Name and data are required');
+    if (!name || !credential_data) return alert('Metadata missing');
 
     const resultDiv = document.getElementById('ext-result');
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse font-bold text-xs uppercase tracking-widest">⚙️ Syncing External Data...</p>';
+    resultDiv.innerHTML = '<p class="text-teal animate-pulse font-black text-xs uppercase tracking-widest">⚙️ Securing External Payload...</p>';
 
     try {
         const response = await fetch('/api/store-external', {
@@ -293,17 +309,17 @@ async function storeExternal() {
             body: JSON.stringify({ name, credential_data })
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Sync failed');
+        if (!response.ok) throw new Error(result.detail || 'Transmission failed');
         
-        showToast(result.message);
+        showToast("Encrypted and stored");
         resultDiv.innerHTML = `
-            <div class="bg-green-900/20 border border-festool/30 rounded-xl p-6 mt-6">
-                <p class="text-festool font-bold flex items-center"><span class="mr-2">✅</span> Successfully Synced to Vaultwarden</p>
+            <div class="bg-teal/10 border border-teal/30 rounded-3xl p-10 mt-10">
+                <p class="text-teal font-black text-xs uppercase tracking-[0.2em] flex items-center"><span class="mr-3 text-lg">✅</span> Vault Transmission Complete</p>
             </div>
         `;
     } catch (err) {
         showToast(err.message, 'error');
-        resultDiv.innerHTML = `<div class="bg-red-900/20 border border-red-500/30 rounded-xl p-6 mt-6 text-red-400 font-bold">Error: ${err.message}</div>`;
+        resultDiv.innerHTML = `<div class="bg-burnt-peach/10 border border-burnt-peach/30 rounded-2xl p-6 mt-6 text-burnt-peach font-black text-xs uppercase tracking-widest">Transaction Failure: ${err.message}</div>`;
     }
 }
 
@@ -312,11 +328,11 @@ function copyToClipboard(btn) {
     el.select();
     document.execCommand('copy');
     const oldText = btn.innerText;
-    btn.innerText = 'Copied!';
-    btn.classList.add('text-festool');
+    btn.innerText = 'Copied';
+    btn.classList.add('text-tan');
     setTimeout(() => {
         btn.innerText = oldText;
-        btn.classList.remove('text-festool');
+        btn.classList.remove('text-tan');
     }, 2000);
 }
 
@@ -328,5 +344,5 @@ function downloadFile(filename, text) {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    showToast(`Downloaded ${filename}`);
+    showToast(`Stored ${filename}`);
 }
