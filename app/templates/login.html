@@ -7,44 +7,46 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --prussian-blue: #031d44;
-            --deep-space: #04395e;
-            --muted-teal: #70a288;
-            --tan: #dab785;
-            --burnt-peach: #d5896f;
+            --neutral-black: #121212;
+            --neutral-dark: #1e1e1e;
+            --neutral-border: #333333;
+            --cherry-rose: #a4243b;
+            --sand: #d8c99b;
+            --golden-apricot: #d8973c;
+            --pure-white: #ffffff;
         }
-        body { background-color: var(--prussian-blue); }
-        .bg-deep { background-color: var(--deep-space); }
-        .bg-teal { background-color: var(--muted-teal); }
-        .text-teal { color: var(--muted-teal); }
-        .text-tan { color: var(--tan); }
+        body { background-color: var(--neutral-black); }
+        .bg-deep { background-color: var(--neutral-dark); }
+        .bg-teal { background-color: var(--golden-apricot); }
+        .text-teal { color: var(--golden-apricot); }
+        .text-white { color: var(--pure-white) !important; }
         
         .btn-primary { 
-            background-color: var(--muted-teal);
-            color: var(--prussian-blue);
+            background-color: var(--golden-apricot);
+            color: var(--neutral-black);
             transition: all 0.2s;
         }
         .btn-primary:hover {
-            filter: brightness(1.1);
+            filter: brightness(1.2);
             transform: translateY(-1px);
         }
     </style>
 </head>
-<body class="min-h-screen text-gray-200 flex items-center justify-center p-4">
-    <div class="max-w-md w-full bg-deep shadow-2xl rounded-3xl p-10 border border-white/5">
-        <header class="mb-10 text-center">
-            <h1 class="text-4xl font-black text-white tracking-tighter italic">Quick<span class="text-tan">Creds</span></h1>
-            <p class="text-[10px] text-teal mt-2 uppercase tracking-[0.3em] font-bold">Secure Access Terminal</p>
+<body class="min-h-screen text-white flex items-center justify-center p-2">
+    <div class="max-w-md w-full bg-deep shadow-2xl rounded-3xl p-5 border border-white/5">
+        <header class="mb-5 text-center">
+            <h1 class="text-4xl font-black text-white tracking-tighter italic">Quick<span class="text-teal">Creds</span></h1>
+            <p class="text-[10px] text-teal mt-1 uppercase tracking-[0.3em] font-bold">Secure Access Terminal</p>
         </header>
 
-        <form id="login-form" class="space-y-8">
+        <form id="login-form" class="space-y-4">
             <div>
-                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Vault Master Password</label>
-                <input type="password" id="password" class="block w-full rounded-xl bg-prussian-blue border-transparent text-white shadow-inner border p-4 focus:ring-2 focus:ring-teal outline-none transition" style="background-color: #031d44" required>
+                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Vault Master Password</label>
+                <input type="password" id="password" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition" style="background-color: var(--neutral-black)" required>
             </div>
 
-            <button type="submit" class="btn-primary w-full font-black px-4 py-5 rounded-2xl shadow-lg uppercase tracking-widest text-sm">Unlock Terminal</button>
-            <div id="login-result" class="mt-6 hidden text-burnt-peach text-xs font-bold text-center uppercase tracking-wider">Invalid Master Password</div>
+            <button type="submit" class="btn-primary w-full font-black px-2 py-2.5 rounded-2xl shadow-lg uppercase tracking-widest text-sm">Unlock Terminal</button>
+            <div id="login-result" class="mt-3 hidden text-[#a4243b] text-xs font-bold text-center uppercase tracking-wider">Invalid Master Password</div>
         </form>
     </div>
     
