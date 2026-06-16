@@ -39,6 +39,9 @@ class SSHSyncRequest(BaseModel):
 class LiteLLMGenerateRequest(BaseModel):
     name: str
     models: Optional[List[str]] = None
+    user_role: Optional[str] = "internal_user"
+    team_id: Optional[str] = None
+    max_budget: Optional[float] = None
 
 class LiteLLMSyncRequest(BaseModel):
     name: str
@@ -192,7 +195,13 @@ async def api_sync_ssh(req: SSHSyncRequest):
 @app.post("/api/generate-litellm")
 async def api_generate_litellm(req: LiteLLMGenerateRequest):
     try:
-        key_data = await generate_virtual_key(key_alias=req.name, models=req.models)
+        key_data = await generate_virtual_key(
+            key_alias=req.name, 
+            models=req.models,
+            user_role=req.user_role,
+            team_id=req.team_id,
+            max_budget=req.max_budget
+        )
         return {
             "status": "success",
             "message": "LiteLLM Key generated. Please review and sync.",
