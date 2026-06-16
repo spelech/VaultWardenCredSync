@@ -2,19 +2,22 @@ import subprocess
 import tempfile
 import os
 
-def generate_ssh_keypair(key_name: str = "id_ed25519", comment: str = ""):
-    """Generates an ed25519 SSH keypair."""
+def generate_ssh_keypair(key_name: str = "id_ssh", comment: str = "", key_type: str = "ed25519"):
+    """Generates an SSH keypair (ed25519 or rsa)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         key_path = os.path.join(tmpdir, key_name)
         
         cmd = [
             "ssh-keygen",
-            "-t", "ed25519",
+            "-t", key_type,
             "-N", "",           # No passphrase
             "-C", comment,
             "-f", key_path,
             "-q"
         ]
+        
+        if key_type == "rsa":
+            cmd.extend(["-b", "4096"]) # Use 4096 bit for RSA
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
