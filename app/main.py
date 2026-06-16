@@ -10,7 +10,7 @@ import uuid
 
 from app.services.ssh import generate_ssh_keypair
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys
-from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys
+from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
 app = FastAPI(title="Credential Portal", version="0.1.0")
@@ -36,6 +36,7 @@ class SSHSyncRequest(BaseModel):
     name: str
     private_key: str
     public_key: str
+    overwrite: Optional[bool] = False
 
 class LiteLLMGenerateRequest(BaseModel):
     key_alias: str
@@ -167,6 +168,7 @@ async def post_login_test(req: LoginTestRequest):
 @app.post("/api/setup")
 async def post_setup(req: SetupRequest):
     try:
+        print(f"DEBUG: Setup triggered for {req.vw_url}")
         session_token = initialize_vaultwarden_session(
             req.vw_url, req.vw_client_id, req.vw_client_secret, req.vw_password
         )
@@ -187,6 +189,7 @@ async def post_setup(req: SetupRequest):
         
         return {"status": "success", "message": "Setup completed. Login with Master Password."}
     except Exception as e:
+        print(f"ERROR in setup: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
@@ -235,8 +238,12 @@ async def api_generate_ssh(req: SSHGenerateRequest):
 async def api_sync_ssh(req: SSHSyncRequest):
     try:
         folder_id = get_secret("SSH_FOLDER_ID")
-        sync_result = create_ssh_key_item(name=req.name, private_key=req.private_key, public_key=req.public_key, folder_id=folder_id)
-        return {"status": "success", "message": "SSH Key synced.", "vaultwarden": sync_result}
+        item_id = None
+        if req.overwrite:
+            item_id = get_item_by_name(req.name, item_type=5)
+            
+        sync_result = create_ssh_key_item(name=req.name, private_key=req.private_key, public_key=req.public_key, folder_id=folder_id, item_id=item_id)
+        return {"status": "success", "message": "SSH Key synced (overwritten)." if item_id else "SSH Key synced.", "vaultwarden": sync_result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
