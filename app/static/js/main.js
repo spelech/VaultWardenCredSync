@@ -21,6 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("Credential Portal loaded");
 });
 
+let lastGeneratedSSH = null;
+let lastGeneratedLiteLLM = null;
+let existingSSHKeys = [];
+let existingLiteLLMKeys = [];
+
 async function fetchLiteLLMOptions() {
     try {
         const response = await fetch('/api/litellm/options');
@@ -42,6 +47,22 @@ async function fetchLiteLLMOptions() {
     }
 }
 
+async function fetchExistingKeys() {
+    try {
+        const [sshRes, llmRes] = await Promise.all([
+            fetch('/api/vaultwarden/ssh-keys'),
+            fetch('/api/litellm/keys')
+        ]);
+        const sshData = await sshRes.json();
+        const llmData = await llmRes.json();
+        
+        existingSSHKeys = sshData.keys || [];
+        existingLiteLLMKeys = llmData.keys || [];
+    } catch (err) {
+        console.error("Failed to fetch existing keys", err);
+    }
+}
+
 function switchTab(tabId) {
     document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
     document.getElementById(`section-${tabId}`).classList.remove('hidden');
@@ -53,19 +74,23 @@ function switchTab(tabId) {
     activeBtn.classList.remove('text-gray-400');
     activeBtn.classList.add('bg-[#1f2937]', 'text-festool', 'border-l-4', 'border-festool');
 
+    fetchExistingKeys();
     if (tabId === 'litellm') {
         fetchLiteLLMOptions();
     }
 }
-
-let lastGeneratedSSH = null;
-let lastGeneratedLiteLLM = null;
 
 async function generateSSH() {
     const name = document.getElementById('ssh-name').value;
     const comment = document.getElementById('ssh-comment').value;
     const key_type = document.getElementById('ssh-type').value;
     if (!name) return alert('Name is required');
+
+    if (existingSSHKeys.includes(name)) {
+        if (!confirm(`An SSH key named "${name}" already exists in Vaultwarden. Proceed anyway?`)) {
+            return;
+        }
+    }
 
     const resultDiv = document.getElementById('ssh-result');
     resultDiv.classList.remove('hidden');
@@ -102,7 +127,11 @@ async function generateSSH() {
                         </div>
                     </div>
                 </div>
-                <button onclick="syncSSH()" class="mt-6 w-full bg-festool text-white font-bold py-3 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
+                <div class="flex space-x-4 mt-6">
+                    <button onclick="downloadFile('${name}.pub', lastGeneratedSSH.public_key)" class="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl hover:bg-gray-600 transition">Download .pub</button>
+                    <button onclick="downloadFile('${name}.pem', lastGeneratedSSH.private_key)" class="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl hover:bg-gray-600 transition">Download .pem</button>
+                </div>
+                <button onclick="syncSSH()" class="mt-4 w-full bg-festool text-white font-bold py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
             </div>
         `;
     } catch (err) {
@@ -149,6 +178,11 @@ async function generateLiteLLM() {
 
     if (!key_alias) return alert('Key Alias is required');
 
+    if (existingLiteLLMKeys.includes(key_alias)) {
+        showToast(`Error: A key with alias "${key_alias}" already exists. Use a unique name.`, "error");
+        return;
+    }
+
     const resultDiv = document.getElementById('llm-result');
     resultDiv.classList.remove('hidden');
     resultDiv.innerHTML = '<p class="text-gray-500 animate-pulse font-bold text-xs uppercase tracking-widest">⚙️ Requesting Key...</p>';
@@ -183,22 +217,11 @@ async function generateLiteLLM() {
                             <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-4">
-                        <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">Type:</span>
-                            <span class="font-mono text-festool uppercase">${key_type}</span>
-                        </div>
-                        <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">User:</span>
-                            <span class="font-mono text-festool">${user_id || 'None'}</span>
-                        </div>
-                        <div class="text-[10px] text-gray-400">
-                            <span class="font-bold uppercase block text-gray-600 mb-1">Team:</span>
-                            <span class="font-mono text-festool">${team_id || 'None'}</span>
-                        </div>
-                    </div>
                 </div>
-                <button onclick="syncLiteLLM()" class="mt-6 w-full bg-festool text-white font-bold py-3 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
+                <div class="flex space-x-4 mt-6">
+                    <button onclick="downloadFile('${key_alias}.txt', lastGeneratedLiteLLM.key)" class="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl hover:bg-gray-600 transition">Download .txt</button>
+                </div>
+                <button onclick="syncLiteLLM()" class="mt-4 w-full bg-festool text-white font-bold py-4 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
             </div>
         `;
     } catch (err) {
@@ -229,7 +252,6 @@ async function syncLiteLLM() {
         document.getElementById('llm-result').innerHTML = `
             <div class="bg-green-900/20 border border-festool/30 rounded-xl p-6 mt-6">
                 <p class="text-festool font-bold flex items-center"><span class="mr-2">✅</span> Successfully Synced to Vaultwarden</p>
-                <p class="text-xs text-gray-400 mt-2 italic">The key is now safely stored as a hidden custom field.</p>
             </div>
         `;
     } catch (err) {
@@ -278,4 +300,15 @@ function copyToClipboard(btn) {
         btn.innerText = oldText;
         btn.classList.remove('text-festool');
     }, 2000);
+}
+
+function downloadFile(filename, text) {
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    showToast(`Downloaded ${filename}`);
 }
