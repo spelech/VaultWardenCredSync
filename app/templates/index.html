@@ -82,10 +82,11 @@
                                 <input type="text" id="llm-name" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition" placeholder="e.g. internal-dev-app">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Key Role</label>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Key Type</label>
                                 <select id="llm-role" class="block w-full rounded-lg bg-[#111827] border-gray-700 text-white shadow-sm border p-3 focus:border-festool outline-none transition cursor-pointer">
-                                    <option value="internal_user">Internal User (API Only)</option>
-                                    <option value="proxy_admin">Proxy Admin (Full MGMT)</option>
+                                    <option value="api">API Only (Inference)</option>
+                                    <option value="mgmt">Management Only (Admin)</option>
+                                    <option value="both">Both (Full Access)</option>
                                     <option value="team">Team Key</option>
                                 </select>
                             </div>

@@ -21,10 +21,22 @@ async def generate_virtual_key(
     }
     
     payload = {"key_alias": key_alias}
+    
+    # Map user-friendly "Key Type" to LiteLLM roles/routes
+    if user_role == "api":
+        payload["user_role"] = "internal_user"
+    elif user_role == "mgmt":
+        payload["user_role"] = "proxy_admin"
+        payload["allowed_routes"] = ["/key/*", "/user/*", "/team/*", "/model/*", "/health/*", "/config/*", "/ui/*"]
+    elif user_role == "both":
+        payload["user_role"] = "proxy_admin"
+    elif user_role == "team":
+        payload["user_role"] = "team"
+    elif user_role:
+        payload["user_role"] = user_role
+
     if models:
         payload["models"] = models
-    if user_role:
-        payload["user_role"] = user_role
     if team_id:
         payload["team_id"] = team_id
     if max_budget is not None:

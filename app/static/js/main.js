@@ -115,7 +115,7 @@ async function syncSSH() {
 
 async function generateLiteLLM() {
     const name = document.getElementById('llm-name').value;
-    const user_role = document.getElementById('llm-role').value;
+    const key_type = document.getElementById('llm-role').value;
     const max_budget = parseFloat(document.getElementById('llm-budget').value) || null;
     const team_id = document.getElementById('llm-team').value || null;
     const models_str = document.getElementById('llm-models').value;
@@ -131,22 +131,28 @@ async function generateLiteLLM() {
         const response = await fetch('/api/generate-litellm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, user_role, max_budget, team_id, models })
+            body: JSON.stringify({ name, user_role: key_type, max_budget, team_id, models })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Generation failed');
 
-        lastGeneratedLiteLLM = { name, ...result.key_data };
+        lastGeneratedLiteLLM = { name, key_type, ...result.key_data };
         showToast(result.message);
 
         resultDiv.innerHTML = `
             <div class="bg-blue-900/20 border border-blue-500/30 rounded-xl p-6 mt-6">
                 <h3 class="text-white font-bold mb-4 flex items-center"><span class="mr-2">👁️</span> Review & Sync</h3>
-                <div class="mt-4">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Generated Virtual Key</label>
-                    <div class="relative">
-                        <input type="text" readonly class="w-full bg-[#111827] text-festool p-3 text-sm font-mono border border-gray-700 rounded-lg focus:outline-none" value="${result.key_data.key}">
-                        <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Generated Virtual Key</label>
+                        <div class="relative">
+                            <input type="text" readonly class="w-full bg-[#111827] text-festool p-3 text-sm font-mono border border-gray-700 rounded-lg focus:outline-none" value="${result.key_data.key}">
+                            <button onclick="copyToClipboard(this)" class="absolute top-3 right-3 text-gray-500 hover:text-festool text-[10px] font-bold uppercase">Copy</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-xs text-gray-400">
+                        <span class="mr-2 font-bold uppercase text-[10px]">Type:</span>
+                        <span class="bg-[#111827] px-2 py-1 rounded border border-gray-700 font-mono text-festool uppercase">${key_type}</span>
                     </div>
                 </div>
                 <button onclick="syncLiteLLM()" class="mt-6 w-full bg-festool text-white font-bold py-3 rounded-xl shadow-lg hover:brightness-110 transition active:scale-95">2. Sync to Vaultwarden</button>
@@ -168,7 +174,8 @@ async function syncLiteLLM() {
             body: JSON.stringify({
                 name: lastGeneratedLiteLLM.name,
                 key: lastGeneratedLiteLLM.key,
-                alias: lastGeneratedLiteLLM.key_alias
+                alias: lastGeneratedLiteLLM.key_alias,
+                key_type: lastGeneratedLiteLLM.key_type
             })
         });
         const result = await response.json();
