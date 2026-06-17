@@ -115,10 +115,10 @@ def get_item_by_name(name: str, item_type: int = None):
     return None
 
 def add_audit_tags(fields: List[Dict]):
-    """Appends hidden audit tags to the custom fields list."""
+    """Appends audit tags to the custom fields list."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    fields.append({"name": "Provisioned By", "value": "QuickCreds", "type": 1})
-    fields.append({"name": "Provision Date", "value": timestamp, "type": 1})
+    fields.append({"name": "Provisioned By", "value": "QuickCreds", "type": 0})
+    fields.append({"name": "Provision Date", "value": timestamp, "type": 0})
     return fields
 
 def create_ssh_key_item(name: str, private_key: str, public_key: str, fingerprint: str, folder_id: str = None, item_id: str = None):

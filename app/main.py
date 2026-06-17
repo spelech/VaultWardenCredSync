@@ -70,6 +70,7 @@ class LiteLLMSyncRequest(BaseModel):
     user_id: Optional[str] = None
     team_id: Optional[str] = None
     key_type: Optional[str] = None
+    max_budget: Optional[float] = None
 
 class ExternalCredentialRequest(BaseModel):
     name: str
@@ -284,6 +285,7 @@ async def api_generate_litellm(req: LiteLLMGenerateRequest):
 async def api_sync_litellm(req: LiteLLMSyncRequest):
     try:
         folder_id = get_secret("LITELLM_FOLDER_ID")
+        # Metadata fields are text (type 0), only the key is hidden (type 1)
         fields = [
             {"name": "Virtual Key", "value": req.key, "type": 1},
             {"name": "Alias", "value": req.alias, "type": 0},
@@ -291,8 +293,8 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         ]
         if req.user_id: fields.append({"name": "Owned By", "value": req.user_id, "type": 0})
         if req.team_id: fields.append({"name": "Team ID", "value": req.team_id, "type": 0})
+        if req.max_budget is not None: fields.append({"name": "Max Budget", "value": str(req.max_budget), "type": 0})
         
-        # USE SECURE NOTE (type 2) FOR LITELLM KEYS TO AVOID WONKY LOGIN FIELDS
         sync_result = create_secure_note_item(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "LiteLLM Key synced.", "vaultwarden": sync_result}
     except Exception as e:
@@ -303,8 +305,8 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
 async def api_store_external(req: ExternalCredentialRequest):
     try:
         folder_id = get_secret("EXTERNAL_FOLDER_ID")
+        # For external data, we keep the main payload hidden but audit tags as text
         fields = [{"name": "Credential Data", "value": req.credential_data, "type": 1}]
-        # ALSO USE SECURE NOTE FOR EXTERNAL DATA
         sync_result = create_secure_note_item(name=req.name, fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "Credential synced.", "vaultwarden": sync_result}
     except Exception as e:

@@ -242,7 +242,15 @@ async function generateLiteLLM() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'API Call failed');
 
-        lastGeneratedLiteLLM = { name: key_alias, key: result.key_data.key, alias: key_alias, user_id, team_id, key_type };
+        lastGeneratedLiteLLM = { 
+            name: key_alias, 
+            key: result.key_data.key, 
+            alias: key_alias, 
+            user_id, 
+            team_id, 
+            key_type,
+            max_budget
+        };
         showToast(result.message);
 
         resultDiv.innerHTML = `
@@ -296,7 +304,8 @@ async function syncLiteLLM() {
                 alias: lastGeneratedLiteLLM.alias,
                 user_id: lastGeneratedLiteLLM.user_id,
                 team_id: lastGeneratedLiteLLM.team_id,
-                key_type: lastGeneratedLiteLLM.key_type
+                key_type: lastGeneratedLiteLLM.key_type,
+                max_budget: lastGeneratedLiteLLM.max_budget
             })
         });
         const result = await response.json();
