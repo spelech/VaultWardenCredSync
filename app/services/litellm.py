@@ -67,9 +67,14 @@ async def get_litellm_teams():
     
     headers = {"Authorization": f"Bearer {key}"}
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{url}/team/list", headers=headers, timeout=5.0)
-        if response.status_code == 200:
-            return response.json().get("teams", [])
+        try:
+            response = await client.get(f"{url}/team/list", headers=headers, timeout=5.0)
+            if response.status_code == 200:
+                res_data = response.json()
+                if isinstance(res_data, list): return res_data
+                return res_data.get("teams", [])
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch LiteLLM teams: {e}")
         return []
 
 async def get_litellm_users():
@@ -80,9 +85,14 @@ async def get_litellm_users():
     
     headers = {"Authorization": f"Bearer {key}"}
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{url}/user/list", headers=headers, timeout=5.0)
-        if response.status_code == 200:
-            return response.json().get("users", [])
+        try:
+            response = await client.get(f"{url}/user/list", headers=headers, timeout=5.0)
+            if response.status_code == 200:
+                res_data = response.json()
+                if isinstance(res_data, list): return res_data
+                return res_data.get("users", [])
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch LiteLLM users: {e}")
         return []
 
 async def get_litellm_models():
@@ -93,9 +103,14 @@ async def get_litellm_models():
     
     headers = {"Authorization": f"Bearer {key}"}
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{url}/models", headers=headers, timeout=5.0)
-        if response.status_code == 200:
-            return response.json().get("data", [])
+        try:
+            response = await client.get(f"{url}/models", headers=headers, timeout=5.0)
+            if response.status_code == 200:
+                res_data = response.json()
+                if isinstance(res_data, list): return res_data
+                return res_data.get("data", [])
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch LiteLLM models: {e}")
         return []
 
 async def get_litellm_keys():
@@ -106,7 +121,17 @@ async def get_litellm_keys():
     
     headers = {"Authorization": f"Bearer {key}"}
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{url}/key/list", headers=headers, timeout=5.0)
-        if response.status_code == 200:
-            return [k.get("key_alias") for k in response.json().get("keys", []) if k.get("key_alias")]
+        try:
+            response = await client.get(f"{url}/key/list", headers=headers, timeout=5.0)
+            if response.status_code == 200:
+                res_data = response.json()
+                keys_list = []
+                if isinstance(res_data, list):
+                    keys_list = res_data
+                elif isinstance(res_data, dict):
+                    keys_list = res_data.get("keys", [])
+                
+                return [k.get("key_alias") for k in keys_list if isinstance(k, dict) and k.get("key_alias")]
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch LiteLLM keys: {e}")
         return []
