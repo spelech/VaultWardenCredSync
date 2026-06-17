@@ -8,12 +8,21 @@ from typing import Optional, List
 import httpx
 import uuid
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 from app.services.ssh import generate_ssh_keypair
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys
 from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
-app = FastAPI(title="Credential Portal", version="0.1.0")
+app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
+
+# Setup Rate Limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Setup paths
 BASE_DIR = Path(__file__).resolve().parent
@@ -123,7 +132,8 @@ async def get_login(request: Request):
     return templates.TemplateResponse(request=request, name="login.html", context={"version": VERSION})
 
 @app.post("/api/login")
-async def post_login(req: LoginRequest):
+@limiter.limit("5/10 minutes")
+async def post_login(request: Request, req: LoginRequest):
     stored_hash = get_secret("PORTAL_PASSWORD_HASH")
     if verify_password(req.password, stored_hash):
         session_id = str(uuid.uuid4())

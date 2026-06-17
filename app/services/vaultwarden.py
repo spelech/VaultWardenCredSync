@@ -2,6 +2,7 @@ import subprocess
 import json
 import os
 import tempfile
+from datetime import datetime
 from typing import List, Dict
 from app.database import get_secret, set_secret
 
@@ -114,9 +115,18 @@ def get_item_by_name(name: str, item_type: int = None):
                 return item.get("id")
     return None
 
+def add_audit_tags(fields: List[Dict]):
+    """Appends hidden audit tags to the custom fields list."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fields.append({"name": "Provisioned By", "value": "QuickCreds", "type": 1})
+    fields.append({"name": "Provision Date", "value": timestamp, "type": 1})
+    return fields
+
 def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id: str = None, item_id: str = None):
     """Creates or overwrites a native SSH Key item (type 5) in Vaultwarden."""
     env = ensure_session()
+
+    fields = add_audit_tags([])
 
     if item_id:
         try:
@@ -125,6 +135,12 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id:
             item["name"] = name
             item["sshKey"] = {"privateKey": private_key, "publicKey": public_key}
             if folder_id: item["folderId"] = folder_id
+            
+            # Merge or replace audit fields
+            existing_fields = item.get("fields", [])
+            # Filter out existing audit fields to avoid duplicates on overwrite
+            existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
+            item["fields"] = existing_fields + fields
         except:
             item_id = None
 
@@ -133,7 +149,7 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id:
             "type": 5,
             "name": name,
             "folderId": folder_id,
-            "fields": [],
+            "fields": fields,
             "sshKey": {
                 "privateKey": private_key,
                 "publicKey": public_key
@@ -173,12 +189,21 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
     """Creates or overwrites a login item in Vaultwarden."""
     env = ensure_session()
     
+    audit_fields = add_audit_tags([])
+    if fields is None: fields = []
+    
     if item_id:
         try:
             current_item_str = run_bw_command(["get", "item", item_id], env=env)
             item = json.loads(current_item_str)
             item["name"] = name
-            if fields: item["fields"] = fields
+            
+            # Merge fields
+            existing_fields = item.get("fields", [])
+            # Filter out existing audit fields to avoid duplicates
+            existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
+            item["fields"] = fields + existing_fields + audit_fields
+            
             if folder_id: item["folderId"] = folder_id
             if username:
                 if "login" not in item: item["login"] = {}
@@ -195,7 +220,7 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
         login_item = json.loads(login_template_str)
         if username: login_item["username"] = username
         item["login"] = login_item
-        if fields: item["fields"] = fields
+        item["fields"] = fields + audit_fields
         if folder_id: item["folderId"] = folder_id
         
     with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
