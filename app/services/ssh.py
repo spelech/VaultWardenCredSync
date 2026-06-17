@@ -19,7 +19,9 @@ def generate_ssh_keypair(key_name: str = "id_ssh", comment: str = "", key_type: 
         if key_type == "rsa":
             cmd.extend(["-b", "4096"]) # Use 4096 bit for RSA
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Explicitly pass /dev/null as stdin to avoid any "no terminal" or "tty" prompts
+        with open(os.devnull, 'rb') as devnull:
+            result = subprocess.run(cmd, stdin=devnull, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception(f"Failed to generate SSH key: {result.stderr}")
             

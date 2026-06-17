@@ -26,6 +26,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Setup templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+# Read version
+try:
+    with open(BASE_DIR.parent / "VERSION", "r") as f:
+        VERSION = f.read().strip()
+except:
+    VERSION = "0.0.0"
+
 # Pydantic models for requests
 class SSHGenerateRequest(BaseModel):
     name: str
@@ -113,7 +120,7 @@ async def auth_middleware(request: Request, call_next):
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login(request: Request):
-    return templates.TemplateResponse(request=request, name="login.html")
+    return templates.TemplateResponse(request=request, name="login.html", context={"version": VERSION})
 
 @app.post("/api/login")
 async def post_login(req: LoginRequest):
@@ -136,7 +143,7 @@ async def post_logout():
 async def get_setup(request: Request):
     if is_setup_complete():
         return RedirectResponse(url="/")
-    return templates.TemplateResponse(request=request, name="setup.html")
+    return templates.TemplateResponse(request=request, name="setup.html", context={"version": VERSION})
 
 @app.post("/api/litellm/test")
 async def api_test_litellm(req: LiteLLMTestRequest):
@@ -195,7 +202,7 @@ async def post_setup(req: SetupRequest):
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+    return templates.TemplateResponse(request=request, name="index.html", context={"version": VERSION})
 
 @app.get("/api/health")
 async def health_check():
@@ -207,6 +214,7 @@ async def api_get_ssh_keys():
         names = get_existing_ssh_keys()
         return {"keys": names}
     except Exception as e:
+        print(f"ERROR in api_get_ssh_keys: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/litellm/keys")
@@ -215,6 +223,7 @@ async def api_get_litellm_keys():
         aliases = await get_litellm_keys()
         return {"keys": aliases}
     except Exception as e:
+        print(f"ERROR in api_get_litellm_keys: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/litellm/options")
@@ -225,6 +234,7 @@ async def api_get_litellm_options():
         models = await get_litellm_models()
         return {"teams": teams, "users": users, "models": models}
     except Exception as e:
+        print(f"ERROR in api_get_litellm_options: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-ssh")
@@ -233,6 +243,7 @@ async def api_generate_ssh(req: SSHGenerateRequest):
         keys = generate_ssh_keypair(key_name=req.name, comment=req.comment, key_type=req.key_type)
         return {"status": "success", "message": "SSH Key generated.", "keys": keys}
     except Exception as e:
+        print(f"ERROR in api_generate_ssh: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/sync-ssh")
@@ -246,6 +257,7 @@ async def api_sync_ssh(req: SSHSyncRequest):
         sync_result = create_ssh_key_item(name=req.name, private_key=req.private_key, public_key=req.public_key, folder_id=folder_id, item_id=item_id)
         return {"status": "success", "message": "SSH Key synced (overwritten)." if item_id else "SSH Key synced.", "vaultwarden": sync_result}
     except Exception as e:
+        print(f"ERROR in api_sync_ssh: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-litellm")
@@ -254,6 +266,7 @@ async def api_generate_litellm(req: LiteLLMGenerateRequest):
         key_data = await generate_virtual_key(key_alias=req.key_alias, user_id=req.user_id, team_id=req.team_id, max_budget=req.max_budget, models=req.models, key_type=req.key_type)
         return {"status": "success", "message": "LiteLLM Key generated.", "key_data": key_data}
     except Exception as e:
+        print(f"ERROR in api_generate_litellm: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/sync-litellm")
@@ -270,6 +283,7 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "LiteLLM Key synced.", "vaultwarden": sync_result}
     except Exception as e:
+        print(f"ERROR in api_sync_litellm: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/store-external")
@@ -280,4 +294,5 @@ async def api_store_external(req: ExternalCredentialRequest):
         sync_result = create_secure_login(name=req.name, fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "Credential synced.", "vaultwarden": sync_result}
     except Exception as e:
+        print(f"ERROR in api_store_external: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

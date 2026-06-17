@@ -44,7 +44,9 @@ def run_bw_command(cmd_list, env=None):
         
     result = subprocess.run(["bw"] + cmd_list, env=env, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception(f"bw command failed: {result.stderr}")
+        error_msg = f"bw command {cmd_list} failed with exit code {result.returncode}. Stderr: {result.stderr}"
+        print(f"ERROR: {error_msg}")
+        raise Exception(error_msg)
     return result.stdout
 
 def get_folders():
@@ -119,7 +121,10 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id:
         
     try:
         with open(temp_name, 'r') as f:
-            encoded_str = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True, check=True).stdout
+            encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
+            if encode_proc.returncode != 0:
+                raise Exception(f"bw encode failed: {encode_proc.stderr}")
+            encoded_str = encode_proc.stdout
             
         with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
             f_enc.write(encoded_str)
@@ -128,12 +133,16 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id:
         try:
             with open(temp_enc_name, 'r') as f_enc_read:
                 cmd = ["create", "item"] if not item_id else ["edit", "item", item_id]
-                create_result = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True, check=True).stdout
-                return json.loads(create_result)
+                create_proc = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True)
+                if create_proc.returncode != 0:
+                    raise Exception(f"bw {cmd} failed: {create_proc.stderr}")
+                return json.loads(create_proc.stdout)
         finally:
-            os.remove(temp_enc_name)
+            if os.path.exists(temp_enc_name):
+                os.remove(temp_enc_name)
     finally:
-        os.remove(temp_name)
+        if os.path.exists(temp_name):
+            os.remove(temp_name)
 
 def create_secure_login(name: str, username: str = None, fields: List[Dict] = None, folder_id: str = None, item_id: str = None):
     """Creates or overwrites a login item in Vaultwarden."""
@@ -173,7 +182,10 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
         
     try:
         with open(temp_name, 'r') as f:
-            encoded_str = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True, check=True).stdout
+            encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
+            if encode_proc.returncode != 0:
+                raise Exception(f"bw encode failed: {encode_proc.stderr}")
+            encoded_str = encode_proc.stdout
             
         with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
             f_enc.write(encoded_str)
@@ -182,9 +194,13 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
         try:
             with open(temp_enc_name, 'r') as f_enc_read:
                 cmd = ["create", "item"] if not item_id else ["edit", "item", item_id]
-                create_result = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True, check=True).stdout
-                return json.loads(create_result)
+                create_proc = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True)
+                if create_proc.returncode != 0:
+                    raise Exception(f"bw {cmd} failed: {create_proc.stderr}")
+                return json.loads(create_proc.stdout)
         finally:
-            os.remove(temp_enc_name)
+            if os.path.exists(temp_enc_name):
+                os.remove(temp_enc_name)
     finally:
-        os.remove(temp_name)
+        if os.path.exists(temp_name):
+            os.remove(temp_name)
