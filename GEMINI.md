@@ -3,6 +3,7 @@
 Follow these architecture and security rules when modifying this codebase.
 
 ## 🏗️ Architecture Mandates
+- **Search Optimization**: NEVER use `grep` or `ripgrep` without narrowing down to likely file types (e.g., using `include_pattern`). This is a hard mandate to minimize search time and data volume.
 - **Logic Separation**: Keep API route definitions in `app/main.py` and core business logic (SSH, LiteLLM, Vaultwarden interactions) in `app/services/`.
 - **Encryption First**: All sensitive configuration MUST be stored via `app/database.py` which handles AES encryption at rest. NEVER use plain environment variables for persistent secrets.
 - **Subprocess Safety**: When calling `bw` or `ssh-keygen`, always use `subprocess.run` with `capture_output=True` and avoid `shell=True` to prevent injection.
