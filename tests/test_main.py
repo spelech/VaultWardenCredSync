@@ -24,5 +24,6 @@ async def test_setup_redirect():
 async def test_api_setup_blocked():
     with patch("app.main.is_setup_complete", return_value=False):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
-            response = await ac.get("/api/health")
+            # Use a restricted endpoint instead of /api/health
+            response = await ac.get("/api/litellm/keys")
         assert response.status_code == 403
