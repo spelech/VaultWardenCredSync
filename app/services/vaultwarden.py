@@ -16,11 +16,12 @@ def initialize_vaultwarden_session(url: str, client_id: str, client_secret: str,
     """Logs into Vaultwarden and unlocks the vault to return a session key."""
     env = os.environ.copy()
     
-    # 1. Config Server
-    subprocess.run(["bw", "config", "server", url], env=env, capture_output=True, check=True)
-    
-    # 2. Ensure we are logged out first to avoid session conflicts
+    # 1. Ensure we are logged out first to avoid session conflicts
+    # This must happen before changing the server config
     subprocess.run(["bw", "logout"], env=env, capture_output=True)
+    
+    # 2. Config Server
+    subprocess.run(["bw", "config", "server", url], env=env, capture_output=True)
     
     # 3. Login via API keys
     env["BW_CLIENTID"] = client_id
