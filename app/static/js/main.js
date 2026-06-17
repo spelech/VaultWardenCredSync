@@ -195,6 +195,7 @@ async function syncSSH() {
                 name: lastGeneratedSSH.name,
                 private_key: lastGeneratedSSH.private_key,
                 public_key: lastGeneratedSSH.public_key,
+                fingerprint: lastGeneratedSSH.fingerprint,
                 overwrite: lastGeneratedSSH.overwrite
             })
         });

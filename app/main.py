@@ -14,7 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.services.ssh import generate_ssh_keypair
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys
-from app.services.vaultwarden import create_secure_login, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name
+from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
 app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
@@ -52,6 +52,7 @@ class SSHSyncRequest(BaseModel):
     name: str
     private_key: str
     public_key: str
+    fingerprint: str
     overwrite: Optional[bool] = False
 
 class LiteLLMGenerateRequest(BaseModel):
@@ -264,7 +265,7 @@ async def api_sync_ssh(req: SSHSyncRequest):
         if req.overwrite:
             item_id = get_item_by_name(req.name, item_type=5)
             
-        sync_result = create_ssh_key_item(name=req.name, private_key=req.private_key, public_key=req.public_key, folder_id=folder_id, item_id=item_id)
+        sync_result = create_ssh_key_item(name=req.name, private_key=req.private_key, public_key=req.public_key, fingerprint=req.fingerprint, folder_id=folder_id, item_id=item_id)
         return {"status": "success", "message": "SSH Key synced (overwritten)." if item_id else "SSH Key synced.", "vaultwarden": sync_result}
     except Exception as e:
         print(f"ERROR in api_sync_ssh: {str(e)}")
@@ -290,7 +291,9 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         ]
         if req.user_id: fields.append({"name": "Owned By", "value": req.user_id, "type": 0})
         if req.team_id: fields.append({"name": "Team ID", "value": req.team_id, "type": 0})
-        sync_result = create_secure_login(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
+        
+        # USE SECURE NOTE (type 2) FOR LITELLM KEYS TO AVOID WONKY LOGIN FIELDS
+        sync_result = create_secure_note_item(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "LiteLLM Key synced.", "vaultwarden": sync_result}
     except Exception as e:
         print(f"ERROR in api_sync_litellm: {str(e)}")
@@ -301,7 +304,8 @@ async def api_store_external(req: ExternalCredentialRequest):
     try:
         folder_id = get_secret("EXTERNAL_FOLDER_ID")
         fields = [{"name": "Credential Data", "value": req.credential_data, "type": 1}]
-        sync_result = create_secure_login(name=req.name, fields=fields, folder_id=folder_id)
+        # ALSO USE SECURE NOTE FOR EXTERNAL DATA
+        sync_result = create_secure_note_item(name=req.name, fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "Credential synced.", "vaultwarden": sync_result}
     except Exception as e:
         print(f"ERROR in api_store_external: {str(e)}")

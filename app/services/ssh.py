@@ -25,10 +25,18 @@ def generate_ssh_keypair(key_name: str = "id_ssh", comment: str = "", key_type: 
         if result.returncode != 0:
             raise Exception(f"Failed to generate SSH key: {result.stderr}")
             
+        # Get fingerprint
+        fingerprint_cmd = ["ssh-keygen", "-l", "-f", key_path]
+        fp_result = subprocess.run(fingerprint_cmd, capture_output=True, text=True)
+        fingerprint = ""
+        if fp_result.returncode == 0:
+            # Output is usually: 256 SHA256:.... comment (ED25519)
+            fingerprint = fp_result.stdout.split()[1]
+
         with open(key_path, "r") as f:
             private_key = f.read()
             
         with open(f"{key_path}.pub", "r") as f:
             public_key = f.read()
             
-    return {"private_key": private_key, "public_key": public_key}
+    return {"private_key": private_key, "public_key": public_key, "fingerprint": fingerprint}

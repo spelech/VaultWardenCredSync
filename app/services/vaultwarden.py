@@ -72,9 +72,8 @@ def run_bw_command(cmd_list, env=None):
     if not env:
         env = ensure_session()
         
-    vw_url = get_secret("VAULTWARDEN_URL")
-    if vw_url:
-        subprocess.run(["bw", "config", "server", vw_url], env=env, capture_output=True)
+    # OPTIMIZATION: Removed redundant 'bw config server' call here.
+    # It adds ~1s latency and is already handled during setup/session initialization.
         
     result = subprocess.run(["bw"] + cmd_list, env=env, capture_output=True, text=True)
     if result.returncode != 0:
@@ -122,7 +121,7 @@ def add_audit_tags(fields: List[Dict]):
     fields.append({"name": "Provision Date", "value": timestamp, "type": 1})
     return fields
 
-def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id: str = None, item_id: str = None):
+def create_ssh_key_item(name: str, private_key: str, public_key: str, fingerprint: str, folder_id: str = None, item_id: str = None):
     """Creates or overwrites a native SSH Key item (type 5) in Vaultwarden."""
     env = ensure_session()
 
@@ -133,12 +132,15 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id:
             current_item_str = run_bw_command(["get", "item", item_id], env=env)
             item = json.loads(current_item_str)
             item["name"] = name
-            item["sshKey"] = {"privateKey": private_key, "publicKey": public_key}
+            item["sshKey"] = {
+                "privateKey": private_key, 
+                "publicKey": public_key,
+                "fingerprint": fingerprint
+            }
             if folder_id: item["folderId"] = folder_id
             
             # Merge or replace audit fields
             existing_fields = item.get("fields", [])
-            # Filter out existing audit fields to avoid duplicates on overwrite
             existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
             item["fields"] = existing_fields + fields
         except:
@@ -152,10 +154,69 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, folder_id:
             "fields": fields,
             "sshKey": {
                 "privateKey": private_key,
-                "publicKey": public_key
+                "publicKey": public_key,
+                "fingerprint": fingerprint
             }
         }
     
+    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        json.dump(item, f)
+        temp_name = f.name
+        
+    try:
+        with open(temp_name, 'r') as f:
+            encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
+            if encode_proc.returncode != 0:
+                raise Exception(f"bw encode failed: {encode_proc.stderr}")
+            encoded_str = encode_proc.stdout
+            
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
+            f_enc.write(encoded_str)
+            temp_enc_name = f_enc.name
+            
+        try:
+            with open(temp_enc_name, 'r') as f_enc_read:
+                cmd = ["create", "item"] if not item_id else ["edit", "item", item_id]
+                create_proc = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True)
+                if create_proc.returncode != 0:
+                    raise Exception(f"bw {cmd} failed: {create_proc.stderr}")
+                return json.loads(create_proc.stdout)
+        finally:
+            if os.path.exists(temp_enc_name):
+                os.remove(temp_enc_name)
+    finally:
+        if os.path.exists(temp_name):
+            os.remove(temp_name)
+
+def create_secure_note_item(name: str, fields: List[Dict] = None, folder_id: str = None, item_id: str = None):
+    """Creates or overwrites a Secure Note item (type 2) in Vaultwarden."""
+    env = ensure_session()
+    
+    audit_fields = add_audit_tags([])
+    if fields is None: fields = []
+    
+    if item_id:
+        try:
+            current_item_str = run_bw_command(["get", "item", item_id], env=env)
+            item = json.loads(current_item_str)
+            item["name"] = name
+            
+            existing_fields = item.get("fields", [])
+            existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
+            item["fields"] = fields + existing_fields + audit_fields
+            
+            if folder_id: item["folderId"] = folder_id
+        except:
+            item_id = None
+
+    if not item_id:
+        template_str = run_bw_command(["get", "template", "item"], env=env)
+        item = json.loads(template_str)
+        item["type"] = 2 # 2 = Secure Note
+        item["name"] = name
+        item["fields"] = fields + audit_fields
+        if folder_id: item["folderId"] = folder_id
+        
     with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
         json.dump(item, f)
         temp_name = f.name
@@ -200,7 +261,7 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
             
             # Merge fields
             existing_fields = item.get("fields", [])
-            # Filter out existing audit fields to avoid duplicates
+            # Filter out existing audit fields to avoid duplicates on overwrite
             existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
             item["fields"] = fields + existing_fields + audit_fields
             
