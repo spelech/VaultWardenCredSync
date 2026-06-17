@@ -101,6 +101,46 @@ def get_existing_ssh_keys():
     items = json.loads(items_str)
     return [i.get("name") for i in items if i.get("type") == 5]
 
+def get_litellm_keys_from_vault():
+    """Fetch all LiteLLM keys stored in the vault."""
+    env = ensure_session()
+    folder_id = get_secret("LITELLM_FOLDER_ID")
+    
+    cmd = ["list", "items"]
+    if folder_id:
+        cmd += ["--folderid", folder_id]
+    
+    items_str = run_bw_command(cmd, env=env)
+    items = json.loads(items_str)
+    
+    keys = []
+    for item in items:
+        # Support both Login (1) and Secure Note (2) types for LiteLLM keys
+        if item.get("type") in [1, 2] and item.get("name", "").startswith("LiteLLM:"):
+            fields = item.get("fields", [])
+            key_data = {
+                "name": item.get("name").replace("LiteLLM: ", ""),
+                "key": None,
+                "alias": None,
+                "user_id": None,
+                "team_id": None,
+                "max_budget": None,
+                "key_type": "api"
+            }
+            for f in fields:
+                name = f.get("name")
+                val = f.get("value")
+                if name == "Virtual Key": key_data["key"] = val
+                elif name == "Alias": key_data["alias"] = val
+                elif name == "Owned By": key_data["user_id"] = val
+                elif name == "Team ID": key_data["team_id"] = val
+                elif name == "Max Budget": key_data["max_budget"] = float(val) if val else None
+                elif name == "Key Type": key_data["key_type"] = val
+            
+            if key_data["key"] and key_data["alias"]:
+                keys.append(key_data)
+    return keys
+
 def get_item_by_name(name: str, item_type: int = None):
     """Finds an item by exact name and optional type, returning its ID."""
     env = ensure_session()

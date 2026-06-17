@@ -7,17 +7,53 @@ from pathlib import Path
 from typing import Optional, List
 import httpx
 import uuid
+import asyncio
+from fastapi import BackgroundTasks
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.services.ssh import generate_ssh_keypair
-from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys
-from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name
+from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys, import_litellm_key
+from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
 app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
+
+# Background Sync Task
+async def reconcile_litellm_keys():
+    """Background task to ensure all keys in Vaultwarden exist in LiteLLM."""
+    while True:
+        try:
+            if is_setup_complete():
+                print("DEBUG: Starting background LiteLLM key reconciliation...")
+                vault_keys = get_litellm_keys_from_vault()
+                litellm_keys = await get_litellm_keys()
+                litellm_aliases = [k["alias"] for k in litellm_keys]
+                
+                for vk in vault_keys:
+                    if vk["alias"] not in litellm_aliases:
+                        print(f"INFO: Key '{vk['alias']}' missing in LiteLLM. Restoring from Vault...")
+                        await import_litellm_key(
+                            key=vk["key"],
+                            key_alias=vk["alias"],
+                            user_id=vk["user_id"],
+                            team_id=vk["team_id"],
+                            max_budget=vk["max_budget"],
+                            key_type=vk["key_type"]
+                        )
+                print("DEBUG: Background reconciliation complete.")
+        except Exception as e:
+            print(f"ERROR: Background reconciliation failed: {e}")
+            
+        # Run every 30 minutes
+        await asyncio.sleep(1800)
+
+@app.on_event("startup")
+async def startup_event():
+    # Start reconciliation in the background
+    asyncio.create_task(reconcile_litellm_keys())
 
 # Setup Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
@@ -311,4 +347,33 @@ async def api_store_external(req: ExternalCredentialRequest):
         return {"status": "success", "message": "Credential synced.", "vaultwarden": sync_result}
     except Exception as e:
         print(f"ERROR in api_store_external: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/litellm/resync")
+async def api_resync_litellm(background_tasks: BackgroundTasks):
+    """Trigger a manual resync of LiteLLM keys from Vaultwarden."""
+    try:
+        # Define a wrapper to run the reconciliation once
+        async def run_once():
+            print("INFO: Manual reconciliation triggered.")
+            vault_keys = get_litellm_keys_from_vault()
+            litellm_keys = await get_litellm_keys()
+            
+            for vk in vault_keys:
+                if vk["alias"] not in litellm_keys:
+                    print(f"INFO: Key '{vk['alias']}' missing in LiteLLM. Restoring from Vault...")
+                    await import_litellm_key(
+                        key=vk["key"],
+                        key_alias=vk["alias"],
+                        user_id=vk["user_id"],
+                        team_id=vk["team_id"],
+                        max_budget=vk["max_budget"],
+                        key_type=vk["key_type"]
+                    )
+            print("INFO: Manual reconciliation complete.")
+
+        background_tasks.add_task(run_once)
+        return {"status": "success", "message": "Resync task started in background."}
+    except Exception as e:
+        print(f"ERROR in api_resync_litellm: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
