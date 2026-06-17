@@ -151,6 +151,7 @@ async function generateSSH() {
         lastGeneratedSSH = { name, overwrite, ...result.keys };
         showToast(result.message);
 
+        const filename = `${name}_id_${key_type}`;
         resultDiv.innerHTML = `
             <div class="bg-[#031d44]/50 border border-[#70a288]/20 rounded-3xl p-8 mt-10">
                 <h3 class="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center"><span class="mr-3">👁️</span> Secure Review Stage</h3>
@@ -171,8 +172,8 @@ async function generateSSH() {
                     </div>
                 </div>
                 <div class="flex space-x-4 mt-8">
-                    <button onclick="downloadFile('${name}.pub', lastGeneratedSSH.public_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download Pub</button>
-                    <button onclick="downloadFile('${name}', lastGeneratedSSH.private_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download Key</button>
+                    <button onclick="downloadFile('${filename}.pub', lastGeneratedSSH.public_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download Pub</button>
+                    <button onclick="downloadFile('${filename}', lastGeneratedSSH.private_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download Key</button>
                 </div>
                 <button onclick="syncSSH()" class="btn-primary mt-6 w-full font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm">2. Transmit to Vaultwarden</button>
             </div>
