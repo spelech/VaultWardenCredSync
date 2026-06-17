@@ -41,8 +41,25 @@ async function logout() {
     }
 }
 
+async function checkConnectivity() {
+    const statusBadge = document.getElementById('system-status');
+    try {
+        const response = await fetch('/api/vaultwarden/ssh-keys');
+        if (response.ok) {
+            statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-teal mr-3 animate-pulse"></span>Vaultwarden Connected`;
+            statusBadge.className = "inline-flex items-center px-4 py-2 rounded-full text-xs font-bold bg-teal/10 text-teal border border-teal/30 shadow-sm";
+        } else {
+            throw new Error();
+        }
+    } catch (err) {
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-peach mr-3"></span>Vault Connection Failure`;
+        statusBadge.className = "inline-flex items-center px-4 py-2 rounded-full text-xs font-bold bg-peach/10 text-peach border border-peach/30 shadow-sm";
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("QuickCreds Terminal Online");
+    checkConnectivity();
 });
 
 let lastGeneratedSSH = null;

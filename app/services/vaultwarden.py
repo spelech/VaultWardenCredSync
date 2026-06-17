@@ -41,12 +41,13 @@ def ensure_session():
     env = get_vw_env()
     
     # Test session with a simple command
-    test_proc = subprocess.run(["bw", "list", "folders"], env=env, capture_output=True, text=True)
-    if test_proc.returncode == 0:
-        return env
+    if env.get("BW_SESSION"):
+        test_proc = subprocess.run(["bw", "list", "folders"], env=env, capture_output=True, text=True)
+        if test_proc.returncode == 0:
+            return env
 
-    # Session invalid, attempt re-auth
-    print("DEBUG: Vaultwarden session invalid. Attempting auto-recovery...")
+    # Session invalid or missing, attempt full re-auth
+    print("DEBUG: Vaultwarden session invalid or missing. Attempting auto-recovery...")
     url = get_secret("VAULTWARDEN_URL")
     client_id = get_secret("VAULTWARDEN_CLIENT_ID")
     client_secret = get_secret("VAULTWARDEN_CLIENT_SECRET")
@@ -55,11 +56,15 @@ def ensure_session():
     if not all([url, client_id, client_secret, password]):
         raise Exception("Vaultwarden session expired and credentials missing for recovery. Please re-run setup.")
         
-    new_session = initialize_vaultwarden_session(url, client_id, client_secret, password)
-    set_secret("BW_SESSION", new_session)
-    
-    env["BW_SESSION"] = new_session
-    return env
+    try:
+        new_session = initialize_vaultwarden_session(url, client_id, client_secret, password)
+        set_secret("BW_SESSION", new_session)
+        env = os.environ.copy()
+        env["BW_SESSION"] = new_session
+        return env
+    except Exception as e:
+        print(f"ERROR: Vaultwarden recovery failed: {e}")
+        raise e
 
 def run_bw_command(cmd_list, env=None):
     """Run a Bitwarden CLI command and return JSON."""

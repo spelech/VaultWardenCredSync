@@ -71,8 +71,15 @@ async def get_litellm_teams():
             response = await client.get(f"{url}/team/list", headers=headers, timeout=5.0)
             if response.status_code == 200:
                 res_data = response.json()
-                if isinstance(res_data, list): return res_data
-                return res_data.get("teams", [])
+                # Handle both dict and list responses
+                teams = []
+                if isinstance(res_data, list):
+                    teams = res_data
+                elif isinstance(res_data, dict):
+                    teams = res_data.get("teams", [])
+                
+                # Normalize to dicts
+                return [t if isinstance(t, dict) else {"team_id": t, "team_alias": t} for t in teams]
         except Exception as e:
             print(f"DEBUG: Failed to fetch LiteLLM teams: {e}")
         return []
@@ -89,8 +96,14 @@ async def get_litellm_users():
             response = await client.get(f"{url}/user/list", headers=headers, timeout=5.0)
             if response.status_code == 200:
                 res_data = response.json()
-                if isinstance(res_data, list): return res_data
-                return res_data.get("users", [])
+                users = []
+                if isinstance(res_data, list):
+                    users = res_data
+                elif isinstance(res_data, dict):
+                    users = res_data.get("users", [])
+                
+                # Normalize to dicts
+                return [u if isinstance(u, dict) else {"user_id": u, "user_role": "unknown"} for u in users]
         except Exception as e:
             print(f"DEBUG: Failed to fetch LiteLLM users: {e}")
         return []
@@ -107,8 +120,12 @@ async def get_litellm_models():
             response = await client.get(f"{url}/models", headers=headers, timeout=5.0)
             if response.status_code == 200:
                 res_data = response.json()
-                if isinstance(res_data, list): return res_data
-                return res_data.get("data", [])
+                models = []
+                if isinstance(res_data, list):
+                    models = res_data
+                elif isinstance(res_data, dict):
+                    models = res_data.get("data", [])
+                return models
         except Exception as e:
             print(f"DEBUG: Failed to fetch LiteLLM models: {e}")
         return []
@@ -131,7 +148,7 @@ async def get_litellm_keys():
                 elif isinstance(res_data, dict):
                     keys_list = res_data.get("keys", [])
                 
-                return [k.get("key_alias") for k in keys_list if isinstance(k, dict) and k.get("key_alias")]
+                return [k.get("key_alias") if isinstance(k, dict) else k for k in keys_list if k]
         except Exception as e:
             print(f"DEBUG: Failed to fetch LiteLLM keys: {e}")
         return []
