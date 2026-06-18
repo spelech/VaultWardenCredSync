@@ -96,6 +96,7 @@ class LiteLLMGenerateRequest(BaseModel):
     user_id: Optional[str] = None
     team_id: Optional[str] = None
     max_budget: Optional[float] = None
+    budget_duration: Optional[str] = None
     models: Optional[List[str]] = None
     key_type: Optional[str] = "api"
 
@@ -107,6 +108,7 @@ class LiteLLMSyncRequest(BaseModel):
     team_id: Optional[str] = None
     key_type: Optional[str] = None
     max_budget: Optional[float] = None
+    budget_duration: Optional[str] = None
 
 class ExternalCredentialRequest(BaseModel):
     name: str
@@ -311,7 +313,15 @@ async def api_sync_ssh(req: SSHSyncRequest):
 @app.post("/api/generate-litellm")
 async def api_generate_litellm(req: LiteLLMGenerateRequest):
     try:
-        key_data = await generate_virtual_key(key_alias=req.key_alias, user_id=req.user_id, team_id=req.team_id, max_budget=req.max_budget, models=req.models, key_type=req.key_type)
+        key_data = await generate_virtual_key(
+            key_alias=req.key_alias, 
+            user_id=req.user_id, 
+            team_id=req.team_id, 
+            max_budget=req.max_budget, 
+            budget_duration=req.budget_duration,
+            models=req.models, 
+            key_type=req.key_type
+        )
         return {"status": "success", "message": "LiteLLM Key generated.", "key_data": key_data}
     except Exception as e:
         print(f"ERROR in api_generate_litellm: {str(e)}")
@@ -330,6 +340,7 @@ async def api_sync_litellm(req: LiteLLMSyncRequest):
         if req.user_id: fields.append({"name": "Owned By", "value": req.user_id, "type": 0})
         if req.team_id: fields.append({"name": "Team ID", "value": req.team_id, "type": 0})
         if req.max_budget is not None: fields.append({"name": "Max Budget", "value": str(req.max_budget), "type": 0})
+        if req.budget_duration: fields.append({"name": "Budget Duration", "value": req.budget_duration, "type": 0})
         
         sync_result = create_secure_note_item(name=f"LiteLLM: {req.name}", fields=fields, folder_id=folder_id)
         return {"status": "success", "message": "LiteLLM Key synced.", "vaultwarden": sync_result}

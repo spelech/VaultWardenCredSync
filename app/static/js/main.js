@@ -60,6 +60,7 @@ async function checkConnectivity() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("QuickCreds Terminal Online");
     checkConnectivity();
+    fetchLiteLLMOptions();
 });
 
 let lastGeneratedSSH = null;
@@ -68,23 +69,60 @@ let existingSSHKeys = [];
 let existingLiteLLMKeys = [];
 
 async function fetchLiteLLMOptions() {
+    const userSelect = document.getElementById('llm-user');
+    const teamSelect = document.getElementById('llm-team');
+    const modelSelect = document.getElementById('llm-models');
+    const generateBtn = document.querySelector('button[onclick="generateLiteLLM()"]');
+
+    if (generateBtn) {
+        generateBtn.disabled = true;
+        generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        generateBtn.innerText = "Loading Options...";
+    }
+
     try {
         const response = await fetch('/api/litellm/options');
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Failed to fetch options');
 
-        const userList = document.getElementById('users-list');
-        const teamList = document.getElementById('teams-list');
-
-        if (data.users && userList) {
-            userList.innerHTML = data.users.map(u => `<option value="${u.user_id}">${u.user_id} (${u.user_role})</option>`).join('');
+        if (data.users && userSelect) {
+            if (data.users.length === 0) {
+                userSelect.innerHTML = '<option value="">None Found</option>';
+                userSelect.disabled = true;
+            } else {
+                userSelect.disabled = false;
+                userSelect.innerHTML = '<option value="">-- Select User (Optional) --</option>' + 
+                    data.users.map(u => `<option value="${u.user_id}">${u.user_id} (${u.user_role})</option>`).join('');
+            }
         }
-        if (data.teams && teamList) {
-            teamList.innerHTML = data.teams.map(t => `<option value="${t.team_id}">${t.team_alias || t.team_id}</option>`).join('');
+
+        if (data.teams && teamSelect) {
+            if (data.teams.length === 0) {
+                teamSelect.innerHTML = '<option value="">None Available</option>';
+                teamSelect.disabled = true;
+            } else {
+                teamSelect.disabled = false;
+                teamSelect.innerHTML = '<option value="">-- Select Team (Optional) --</option>' + 
+                    data.teams.map(t => `<option value="${t.team_id}">${t.team_alias || t.team_id}</option>`).join('');
+            }
+        }
+
+        if (data.models && modelSelect) {
+            modelSelect.innerHTML = data.models.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+        }
+
+        if (generateBtn) {
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            generateBtn.innerText = "1. Generate Key";
         }
     } catch (err) {
         console.error(err);
         showToast("Unable to reach LiteLLM API", "error");
+        if (userSelect) userSelect.innerHTML = '<option value="">Error Loading</option>';
+        if (teamSelect) teamSelect.innerHTML = '<option value="">Error Loading</option>';
+        if (modelSelect) modelSelect.innerHTML = '<option value="">Error Loading</option>';
+        if (generateBtn) generateBtn.innerText = "API Connection Error";
     }
 }
 
@@ -219,8 +257,11 @@ async function generateLiteLLM() {
     const user_id = document.getElementById('llm-user').value || null;
     const team_id = document.getElementById('llm-team').value || null;
     const max_budget = parseFloat(document.getElementById('llm-budget').value) || null;
-    const models_str = document.getElementById('llm-models').value;
-    const models = models_str ? models_str.split(',').map(m => m.trim()) : null;
+    const budget_duration = document.getElementById('llm-duration').value || null;
+    
+    // Multi-select for models
+    const modelSelect = document.getElementById('llm-models');
+    const models = Array.from(modelSelect.selectedOptions).map(o => o.value).filter(v => v !== "");
 
     if (!key_alias) return alert('Alias required');
 
@@ -237,7 +278,7 @@ async function generateLiteLLM() {
         const response = await fetch('/api/generate-litellm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key_alias, user_id, team_id, max_budget, models, key_type })
+            body: JSON.stringify({ key_alias, user_id, team_id, max_budget, budget_duration, models, key_type })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'API Call failed');
@@ -249,7 +290,8 @@ async function generateLiteLLM() {
             user_id, 
             team_id, 
             key_type,
-            max_budget
+            max_budget,
+            budget_duration
         };
         showToast(result.message);
 
@@ -274,8 +316,8 @@ async function generateLiteLLM() {
                             <span class="text-[10px] font-mono text-tan truncate">${user_id || 'None'}</span>
                         </div>
                         <div class="bg-[#031d44] p-3 rounded-xl border border-white/5">
-                            <span class="block text-[8px] font-black text-gray-600 uppercase mb-1">Team</span>
-                            <span class="text-[10px] font-mono text-tan truncate">${team_id || 'None'}</span>
+                            <span class="block text-[8px] font-black text-gray-600 uppercase mb-1">Duration</span>
+                            <span class="text-[10px] font-mono text-tan truncate">${budget_duration || 'Lifetime'}</span>
                         </div>
                     </div>
                 </div>
@@ -305,7 +347,8 @@ async function syncLiteLLM() {
                 user_id: lastGeneratedLiteLLM.user_id,
                 team_id: lastGeneratedLiteLLM.team_id,
                 key_type: lastGeneratedLiteLLM.key_type,
-                max_budget: lastGeneratedLiteLLM.max_budget
+                max_budget: lastGeneratedLiteLLM.max_budget,
+                budget_duration: lastGeneratedLiteLLM.budget_duration
             })
         });
         const result = await response.json();

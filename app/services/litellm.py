@@ -6,6 +6,7 @@ async def generate_virtual_key(
     user_id: str = None, 
     team_id: str = None, 
     max_budget: float = None,
+    budget_duration: str = None,
     models: list = None,
     key_type: str = "api"
 ):
@@ -25,13 +26,14 @@ async def generate_virtual_key(
     if user_id: payload["user_id"] = user_id
     if team_id: payload["team_id"] = team_id
     if max_budget is not None: payload["max_budget"] = max_budget
+    if budget_duration: payload["budget_duration"] = budget_duration
     if models: payload["models"] = models
 
     # Restore Key Type logic
     if key_type == "mgmt":
         payload["user_role"] = "proxy_admin"
         payload["allowed_routes"] = ["/key/*", "/user/*", "/team/*", "/model/*", "/health/*", "/config/*", "/ui/*"]
-    elif key_type == "both":
+    elif key_type == "management, api":
         payload["user_role"] = "proxy_admin"
     else:
         payload["user_role"] = "internal_user"
@@ -56,7 +58,8 @@ async def generate_virtual_key(
             "team_id": team_id,
             "key_type": key_type,
             "models": data.get("models", []),
-            "key_name": data.get("key_name")
+            "key_name": data.get("key_name"),
+            "budget_duration": budget_duration
         }
 
 async def import_litellm_key(
@@ -65,6 +68,7 @@ async def import_litellm_key(
     user_id: str = None,
     team_id: str = None,
     max_budget: float = None,
+    budget_duration: str = None,
     models: list = None,
     key_type: str = "api"
 ):
@@ -87,12 +91,13 @@ async def import_litellm_key(
     if user_id: payload["user_id"] = user_id
     if team_id: payload["team_id"] = team_id
     if max_budget is not None: payload["max_budget"] = max_budget
+    if budget_duration: payload["budget_duration"] = budget_duration
     if models: payload["models"] = models
 
     if key_type == "mgmt":
         payload["user_role"] = "proxy_admin"
         payload["allowed_routes"] = ["/key/*", "/user/*", "/team/*", "/model/*", "/health/*", "/config/*", "/ui/*"]
-    elif key_type == "both":
+    elif key_type == "management, api":
         payload["user_role"] = "proxy_admin"
     else:
         payload["user_role"] = "internal_user"
@@ -157,7 +162,22 @@ async def get_litellm_users():
                     users = res_data.get("users", [])
                 
                 # Normalize to dicts
-                return [u if isinstance(u, dict) else {"user_id": u, "user_role": "unknown"} for u in users]
+                normalized_users = [u if isinstance(u, dict) else {"user_id": u, "user_role": "unknown"} for u in users]
+                
+                if not normalized_users:
+                    try:
+                        info_res = await client.get(f"{url}/key/info?key={key}", headers=headers, timeout=2.0)
+                        if info_res.status_code == 200:
+                            info_data = info_res.json()
+                            master_user_id = info_data.get("info", {}).get("user_id")
+                            if master_user_id:
+                                normalized_users.append({"user_id": master_user_id, "user_role": "proxy_admin"})
+                            else:
+                                normalized_users.append({"user_id": "admin", "user_role": "proxy_admin"})
+                    except Exception:
+                        normalized_users.append({"user_id": "admin", "user_role": "proxy_admin"})
+                        
+                return normalized_users
         except Exception as e:
             print(f"DEBUG: Failed to fetch LiteLLM users: {e}")
         return []

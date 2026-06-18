@@ -14,16 +14,24 @@
             --sand: #d8c99b;
             --golden-apricot: #d8973c;
             --pure-white: #ffffff;
+            --muted-teal: #70a288;
+            --burnt-peach: #d5896f;
         }
         body { background-color: var(--neutral-black); }
         .bg-deep { background-color: var(--neutral-dark); }
         .bg-accent { background-color: var(--golden-apricot); }
         .bg-cherry { background-color: var(--cherry-rose); }
+        .bg-teal { background-color: var(--muted-teal); }
+        .bg-peach { background-color: var(--burnt-peach); }
         
         .text-white { color: var(--pure-white) !important; }
         .text-accent { color: var(--golden-apricot); }
+        .text-teal { color: var(--muted-teal); }
+        .text-peach { color: var(--burnt-peach); }
         .text-muted { color: #a1a1a1; }
         
+        .border-teal { border-color: var(--muted-teal); }
+        .border-peach { border-color: var(--burnt-peach); }
         .border-accent { border-color: var(--golden-apricot); }
         .border-neutral { border-color: var(--neutral-border); }
         
@@ -125,26 +133,39 @@
                                 <select id="llm-key-type" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition cursor-pointer" style="background-color: var(--neutral-black)">
                                     <option value="api">API Only (Inference)</option>
                                     <option value="mgmt">Management Only (Admin)</option>
-                                    <option value="both">Both (Full Access)</option>
+                                    <option value="management, api">Management & API (Full Access)</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1.5">Owned By</label>
-                                <input list="users-list" id="llm-user" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition placeholder:text-gray-600" style="background-color: var(--neutral-black)" placeholder="Search or type User ID...">
-                                <datalist id="users-list"></datalist>
+                                <select id="llm-user" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition cursor-pointer" style="background-color: var(--neutral-black)">
+                                    <option value="">Loading Users...</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1.5">Team ID</label>
-                                <input list="teams-list" id="llm-team" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition placeholder:text-gray-600" style="background-color: var(--neutral-black)" placeholder="Search or type Team ID...">
-                                <datalist id="teams-list"></datalist>
+                                <select id="llm-team" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition cursor-pointer" style="background-color: var(--neutral-black)">
+                                    <option value="">Loading Teams...</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1.5">Max Budget ($)</label>
                                 <input type="number" id="llm-budget" step="0.01" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition placeholder:text-gray-600" style="background-color: var(--neutral-black)" placeholder="e.g. 5.00">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1.5">Allowed Models</label>
-                                <input type="text" id="llm-models" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition placeholder:text-gray-600" style="background-color: var(--neutral-black)" placeholder="gpt-4, claude-3-haiku">
+                                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1.5">Reset Period</label>
+                                <select id="llm-duration" class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition cursor-pointer" style="background-color: var(--neutral-black)">
+                                    <option value="">Never (Total Budget)</option>
+                                    <option value="1d">Daily</option>
+                                    <option value="7d">Weekly</option>
+                                    <option value="30d">Monthly</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1.5">Allowed Models <span class="text-[9px] text-gray-600 normal-case ml-2 font-medium">(Multi-select. None = All Models)</span></label>
+                                <select id="llm-models" multiple class="block w-full rounded-xl border-transparent text-white shadow-inner border p-2 outline-none transition cursor-pointer min-h-[100px]" style="background-color: var(--neutral-black)">
+                                    <option value="">Loading Models...</option>
+                                </select>
                             </div>
                         </div>
                         <button onclick="generateLiteLLM()" class="btn-primary px-5 py-2 rounded-2xl shadow-lg uppercase tracking-tighter text-lg">1. Generate Key</button>
