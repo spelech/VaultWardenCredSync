@@ -3,7 +3,7 @@ services:
     image: ghcr.io/spelech/vaultwardencredsync:latest
     container_name: quickcreds
     ports:
-      - "8110:8110"
+      - "8006:8110"
     volumes:
       - ./data:/app/data
     restart: unless-stopped

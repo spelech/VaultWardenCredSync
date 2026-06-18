@@ -24,7 +24,7 @@ docker compose up -d quickcreds
 ## 🌐 Access
 - **Local (SSL)**: `https://quickcreds.wileyriley.com`
 - **Local (Internal)**: `http://quickcreds.lan` (managed via AdGuard rewrites)
-- **Port**: `8110` (Internal)
+- **Port**: `8006` (Internal)
 
 ## 🧪 Testing
 ```bash
