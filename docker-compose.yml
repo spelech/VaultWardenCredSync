@@ -1,9 +1,9 @@
 services:
-  credential-portal:
-    build: .
-    container_name: credential-portal
+  quickcreds:
+    image: ghcr.io/spelech/vaultwardencredsync:latest
+    container_name: quickcreds
     ports:
-      - "8111:8110"
+      - "8110:8110"
     volumes:
-      - .:/app
+      - ./data:/app/data
     restart: unless-stopped
