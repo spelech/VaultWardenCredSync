@@ -125,6 +125,7 @@ def get_litellm_keys_from_vault():
                 "user_id": None,
                 "team_id": None,
                 "max_budget": None,
+                "budget_duration": None,
                 "key_type": "api"
             }
             for f in fields:
@@ -135,6 +136,7 @@ def get_litellm_keys_from_vault():
                 elif name == "Owned By": key_data["user_id"] = val
                 elif name == "Team ID": key_data["team_id"] = val
                 elif name == "Max Budget": key_data["max_budget"] = float(val) if val else None
+                elif name == "Budget Duration": key_data["budget_duration"] = val
                 elif name == "Key Type": key_data["key_type"] = val
             
             if key_data["key"] and key_data["alias"]:
@@ -191,6 +193,7 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, fingerprin
             "type": 5,
             "name": name,
             "folderId": folder_id,
+            "notes": "",
             "fields": fields,
             "sshKey": {
                 "privateKey": private_key,
@@ -254,6 +257,7 @@ def create_secure_note_item(name: str, fields: List[Dict] = None, folder_id: str
         item = json.loads(template_str)
         item["type"] = 2 # 2 = Secure Note
         item["name"] = name
+        item["notes"] = ""
         item["fields"] = fields + audit_fields
         if folder_id: item["folderId"] = folder_id
         
@@ -317,6 +321,7 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
         item = json.loads(template_str)
         item["type"] = 1 # 1 = Login
         item["name"] = name
+        item["notes"] = ""
         login_template_str = run_bw_command(["get", "template", "item.login"], env=env)
         login_item = json.loads(login_template_str)
         if username: login_item["username"] = username
