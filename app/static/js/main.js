@@ -275,7 +275,8 @@ async function pushSSHKey() {
                 username: username,
                 public_key: lastGeneratedSSH.public_key,
                 password: password || null,
-                port: port
+                port: port,
+                name: lastGeneratedSSH.name
             })
         });
         const result = await response.json();

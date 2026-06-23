@@ -357,3 +357,56 @@ def create_secure_login(name: str, username: str = None, fields: List[Dict] = No
     finally:
         if os.path.exists(temp_name):
             os.remove(temp_name)
+
+def add_registered_host_to_ssh_key(name: str, host: str):
+    """Appends a host to the 'Registered Hosts' custom field of the SSH key item."""
+    env = ensure_session()
+    item_id = get_item_by_name(name, item_type=5)
+    if not item_id:
+        return
+        
+    try:
+        current_item_str = run_bw_command(["get", "item", item_id], env=env)
+        item = json.loads(current_item_str)
+        
+        fields = item.get("fields", [])
+        # Find if 'Registered Hosts' already exists
+        registered_field = None
+        for f in fields:
+            if f.get("name") == "Registered Hosts":
+                registered_field = f
+                break
+                
+        if registered_field:
+            hosts = [h.strip() for h in registered_field.get("value", "").split(",") if h.strip()]
+            if host not in hosts:
+                hosts.append(host)
+                registered_field["value"] = ", ".join(hosts)
+        else:
+            fields.append({"name": "Registered Hosts", "value": host, "type": 0})
+            
+        item["fields"] = fields
+        
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+            json.dump(item, f)
+            temp_name = f.name
+            
+        try:
+            with open(temp_name, 'r') as f:
+                encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
+                encoded_str = encode_proc.stdout
+                
+            with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
+                f_enc.write(encoded_str)
+                temp_enc_name = f_enc.name
+                
+            try:
+                with open(temp_enc_name, 'r') as f_enc_read:
+                    subprocess.run(["bw", "edit", "item", item_id], stdin=f_enc_read, env=env, capture_output=True)
+            finally:
+                os.remove(temp_enc_name)
+        finally:
+            os.remove(temp_name)
+    except Exception as e:
+        print(f"WARNING: Could not update Registered Hosts in Vaultwarden: {e}")
+
