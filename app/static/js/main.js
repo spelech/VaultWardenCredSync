@@ -214,11 +214,80 @@ async function generateSSH() {
                     <button onclick="downloadFile('${filename}', lastGeneratedSSH.private_key)" class="flex-1 bg-white/5 text-white font-black py-4 rounded-2xl hover:bg-white/10 transition uppercase tracking-widest text-[10px]">Download Key</button>
                 </div>
                 <button onclick="syncSSH()" class="btn-primary mt-6 w-full font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest text-sm">2. Transmit to Vaultwarden</button>
+
+                <div class="border-t border-white/5 mt-8 pt-8">
+                    <h4 class="text-white font-black text-xs uppercase tracking-widest mb-4 flex items-center"><span class="mr-3">🚀</span> Push Key to Remote Host (Optional)</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="col-span-2">
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Hostname / IP</label>
+                            <input type="text" id="push-host" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)" placeholder="e.g. 192.168.1.50">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Port</label>
+                            <input type="number" id="push-port" value="22" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Username</label>
+                            <input type="text" id="push-user" value="root" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Password</label>
+                            <input type="password" id="push-password" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)" placeholder="SSH Password">
+                        </div>
+                        <div class="col-span-2 flex items-end">
+                            <button onclick="pushSSHKey()" class="w-full bg-[#70a288] text-[#031d44] font-black py-2.5 rounded-xl hover:brightness-110 transition uppercase tracking-widest text-[10px]">Register Key on Host</button>
+                        </div>
+                    </div>
+                    <div id="push-status" class="hidden text-[10px] font-mono mt-2"></div>
+                </div>
             </div>
         `;
     } catch (err) {
         showToast(err.message, 'error');
         resultDiv.innerHTML = `<div class="bg-burnt-peach/10 border border-burnt-peach/30 rounded-2xl p-6 mt-6 text-burnt-peach font-black text-xs uppercase tracking-widest">Transaction Failure: ${err.message}</div>`;
+    }
+}
+
+async function pushSSHKey() {
+    if (!lastGeneratedSSH) return;
+    const host = document.getElementById('push-host').value;
+    const port = parseInt(document.getElementById('push-port').value) || 22;
+    const username = document.getElementById('push-user').value;
+    const password = document.getElementById('push-password').value;
+    
+    if (!host || !username) {
+        return alert("Hostname and username are required");
+    }
+    
+    const statusDiv = document.getElementById('push-status');
+    statusDiv.classList.remove('hidden');
+    statusDiv.className = "text-teal animate-pulse font-bold mt-2";
+    statusDiv.innerText = "Connecting and registering public key...";
+    
+    showToast("Connecting to host...", "info");
+    
+    try {
+        const response = await fetch('/api/push-ssh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                host: host,
+                username: username,
+                public_key: lastGeneratedSSH.public_key,
+                password: password || null,
+                port: port
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Failed to push key');
+        
+        statusDiv.className = "text-teal font-bold mt-2";
+        statusDiv.innerText = `Success: ${result.message}`;
+        showToast("SSH Key successfully registered on host");
+    } catch (err) {
+        statusDiv.className = "text-peach font-bold mt-2";
+        statusDiv.innerText = `Error: ${err.message}`;
+        showToast(err.message, "error");
     }
 }
 

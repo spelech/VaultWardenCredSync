@@ -40,3 +40,24 @@ def generate_ssh_keypair(key_name: str = "id_ssh", comment: str = "", key_type: 
             public_key = f.read()
             
     return {"private_key": private_key, "public_key": public_key, "fingerprint": fingerprint}
+
+def push_ssh_key_to_host(host: str, username: str, public_key: str, password: str = None, port: int = 22):
+    """Pushes a public key to the remote host's ~/.ssh/authorized_keys file."""
+    import paramiko
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        ssh.connect(hostname=host, port=port, username=username, password=password, timeout=10)
+        # Escaping single quotes in public_key to avoid shell injection
+        escaped_key = public_key.replace("'", "'\\''")
+        cmd = f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{escaped_key.strip()}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status != 0:
+            error_msg = stderr.read().decode().strip()
+            raise Exception(f"SSH command failed with exit status {exit_status}: {error_msg}")
+    except Exception as e:
+        raise Exception(f"Failed to connect or push key: {str(e)}")
+    finally:
+        ssh.close()
+

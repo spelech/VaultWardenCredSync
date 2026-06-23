@@ -14,7 +14,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from app.services.ssh import generate_ssh_keypair
+from app.services.ssh import generate_ssh_keypair, push_ssh_key_to_host
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys, import_litellm_key
 from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
@@ -90,6 +90,13 @@ class SSHSyncRequest(BaseModel):
     public_key: str
     fingerprint: str
     overwrite: Optional[bool] = False
+
+class SSHPushRequest(BaseModel):
+    host: str
+    username: str
+    public_key: str
+    password: Optional[str] = None
+    port: Optional[int] = 22
 
 class LiteLLMGenerateRequest(BaseModel):
     key_alias: str
@@ -308,6 +315,21 @@ async def api_sync_ssh(req: SSHSyncRequest):
         return {"status": "success", "message": "SSH Key synced (overwritten)." if item_id else "SSH Key synced.", "vaultwarden": sync_result}
     except Exception as e:
         print(f"ERROR in api_sync_ssh: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/push-ssh")
+async def api_push_ssh(req: SSHPushRequest):
+    try:
+        push_ssh_key_to_host(
+            host=req.host,
+            username=req.username,
+            public_key=req.public_key,
+            password=req.password,
+            port=req.port
+        )
+        return {"status": "success", "message": f"SSH Key successfully registered on {req.host}."}
+    except Exception as e:
+        print(f"ERROR in api_push_ssh: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-litellm")
