@@ -32,7 +32,8 @@ async def test_api_setup_blocked():
 async def test_api_push_ssh():
     with patch("app.main.is_setup_complete", return_value=True), \
          patch("app.main.get_secret", return_value="mock-session-id"), \
-         patch("app.main.push_ssh_key_to_host") as mock_push:
+         patch("app.main.push_ssh_key_to_host") as mock_push, \
+         patch("app.main.add_registered_host_to_ssh_key") as mock_track:
         
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
             cookies = {"portal_session": "mock-session-id"}
@@ -41,7 +42,8 @@ async def test_api_push_ssh():
                 "username": "root",
                 "public_key": "ssh-ed25519 AAAAC3...",
                 "password": "mypassword",
-                "port": 22
+                "port": 22,
+                "name": "my-ssh-key"
             }
             response = await ac.post("/api/push-ssh", json=payload, cookies=cookies)
             
@@ -54,4 +56,5 @@ async def test_api_push_ssh():
             password="mypassword",
             port=22
         )
+        mock_track.assert_called_once_with("my-ssh-key", "192.168.1.100")
 

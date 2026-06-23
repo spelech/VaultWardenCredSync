@@ -16,7 +16,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.services.ssh import generate_ssh_keypair, push_ssh_key_to_host
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys, import_litellm_key
-from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault
+from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault, add_registered_host_to_ssh_key
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
 app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
@@ -97,6 +97,7 @@ class SSHPushRequest(BaseModel):
     public_key: str
     password: Optional[str] = None
     port: Optional[int] = 22
+    name: Optional[str] = None
 
 class LiteLLMGenerateRequest(BaseModel):
     key_alias: str
@@ -327,6 +328,8 @@ async def api_push_ssh(req: SSHPushRequest):
             password=req.password,
             port=req.port
         )
+        if req.name:
+            add_registered_host_to_ssh_key(req.name, req.host)
         return {"status": "success", "message": f"SSH Key successfully registered on {req.host}."}
     except Exception as e:
         print(f"ERROR in api_push_ssh: {str(e)}")
