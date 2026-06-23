@@ -16,7 +16,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.services.ssh import generate_ssh_keypair, push_ssh_key_to_host
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys, import_litellm_key
-from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault, add_registered_host_to_ssh_key
+from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault, add_registered_host_to_ssh_key, get_ssh_key_item
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 
 app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
@@ -295,6 +295,15 @@ async def api_get_litellm_options():
         print(f"ERROR in api_get_litellm_options: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/vaultwarden/ssh-keys/{name}")
+async def api_get_ssh_key_details(name: str):
+    try:
+        details = get_ssh_key_item(name)
+        return {"status": "success", "key": details}
+    except Exception as e:
+        print(f"ERROR in api_get_ssh_key_details: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/generate-ssh")
 async def api_generate_ssh(req: SSHGenerateRequest):
     try:
@@ -338,6 +347,12 @@ async def api_push_ssh(req: SSHPushRequest):
 @app.post("/api/generate-litellm")
 async def api_generate_litellm(req: LiteLLMGenerateRequest):
     try:
+        # Check if the alias already exists in LiteLLM to prevent duplicates
+        existing_keys = await get_litellm_keys()
+        for k in existing_keys:
+            if k.get("alias") == req.key_alias:
+                raise HTTPException(status_code=400, detail=f"LiteLLM Key alias '{req.key_alias}' already in use.")
+
         key_data = await generate_virtual_key(
             key_alias=req.key_alias, 
             user_id=req.user_id, 

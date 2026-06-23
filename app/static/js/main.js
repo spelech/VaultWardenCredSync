@@ -136,8 +136,99 @@ async function fetchExistingKeys() {
         const llmData = await llmRes.json();
         existingSSHKeys = sshData.keys || [];
         existingLiteLLMKeys = llmData.keys || [];
+
+        const select = document.getElementById('ssh-existing-select');
+        if (select) {
+            if (existingSSHKeys.length === 0) {
+                select.innerHTML = '<option value="">-- No keys in vault --</option>';
+            } else {
+                select.innerHTML = '<option value="">-- Select a key --</option>' +
+                    existingSSHKeys.map(k => `<option value="${k}">${k}</option>`).join('');
+            }
+        }
     } catch (err) {
         console.error("Failed to fetch existing vault items", err);
+    }
+}
+
+async function loadExistingSSHKey() {
+    const name = document.getElementById('ssh-existing-select').value;
+    if (!name) return alert('Please select a key');
+
+    const resultDiv = document.getElementById('ssh-result');
+    if (resultDiv) {
+        resultDiv.innerHTML = '';
+        resultDiv.classList.add('hidden');
+    }
+
+    const detailDiv = document.getElementById('ssh-existing-detail');
+    detailDiv.classList.remove('hidden');
+    detailDiv.innerHTML = '<p class="text-teal animate-pulse font-black text-xs uppercase tracking-widest">⚙️ Retrieving key details...</p>';
+
+    try {
+        const response = await fetch(`/api/vaultwarden/ssh-keys/${encodeURIComponent(name)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to retrieve key');
+
+        const key = data.key;
+        lastGeneratedSSH = {
+            name: key.name,
+            private_key: key.private_key,
+            public_key: key.public_key,
+            fingerprint: key.fingerprint,
+            overwrite: true
+        };
+
+        detailDiv.innerHTML = `
+            <div class="bg-[#031d44]/50 border border-[#70a288]/20 rounded-3xl p-8 mt-6">
+                <h3 class="text-white font-black text-xs uppercase tracking-widest mb-4 flex items-center"><span class="mr-3">👁️</span> Key Details: ${key.name}</h3>
+                
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1.5">Registered Hosts</label>
+                        <div class="text-xs text-tan font-mono bg-[#031d44] p-3 border border-white/5 rounded-xl">
+                            ${key.registered_hosts || '<span class="italic text-gray-500">Not registered on any hosts yet</span>'}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1.5">Public Key</label>
+                        <div class="relative">
+                            <textarea id="preview-ssh-pub" readonly rows="2" class="w-full bg-[#031d44] text-teal p-4 text-xs font-mono border border-white/5 rounded-xl focus:outline-none shadow-inner">${key.public_key}</textarea>
+                            <button onclick="copyToClipboard(this)" class="absolute top-4 right-4 text-gray-500 hover:text-tan text-[9px] font-black uppercase tracking-tighter">Copy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-white/5 mt-6 pt-6">
+                    <h4 class="text-white font-black text-xs uppercase tracking-widest mb-4 flex items-center"><span class="mr-3">🚀</span> Push Key to Remote Host</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="col-span-2">
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Hostname / IP</label>
+                            <input type="text" id="push-host" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)" placeholder="e.g. 192.168.1.50">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Port</label>
+                            <input type="number" id="push-port" value="22" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Username</label>
+                            <input type="text" id="push-user" value="root" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Password</label>
+                            <input type="password" id="push-password" class="block w-full rounded-xl border-transparent text-white p-2 outline-none text-xs" style="background-color: var(--neutral-black)" placeholder="SSH Password">
+                        </div>
+                        <div class="col-span-2 flex items-end">
+                            <button onclick="pushSSHKey()" class="w-full bg-[#70a288] text-[#031d44] font-black py-2.5 rounded-xl hover:brightness-110 transition uppercase tracking-widest text-[10px]">Register Key on Host</button>
+                        </div>
+                    </div>
+                    <div id="push-status" class="hidden text-[10px] font-mono mt-2"></div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        showToast(err.message, 'error');
+        detailDiv.innerHTML = `<div class="bg-burnt-peach/10 border border-burnt-peach/30 rounded-2xl p-6 mt-6 text-burnt-peach font-black text-xs uppercase tracking-widest">Error Loading Details: ${err.message}</div>`;
     }
 }
 
@@ -171,6 +262,12 @@ async function generateSSH() {
         } else {
             return;
         }
+    }
+
+    const detailDiv = document.getElementById('ssh-existing-detail');
+    if (detailDiv) {
+        detailDiv.innerHTML = '';
+        detailDiv.classList.add('hidden');
     }
 
     const resultDiv = document.getElementById('ssh-result');

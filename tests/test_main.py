@@ -58,3 +58,26 @@ async def test_api_push_ssh():
         )
         mock_track.assert_called_once_with("my-ssh-key", "192.168.1.100")
 
+@pytest.mark.asyncio
+async def test_api_get_ssh_key_details():
+    mock_key = {
+        "name": "test-key",
+        "private_key": "private...",
+        "public_key": "public...",
+        "fingerprint": "fingerprint...",
+        "registered_hosts": "1.1.1.1"
+    }
+    with patch("app.main.is_setup_complete", return_value=True), \
+         patch("app.main.get_secret", return_value="mock-session-id"), \
+         patch("app.main.get_ssh_key_item", return_value=mock_key) as mock_get:
+        
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
+            cookies = {"portal_session": "mock-session-id"}
+            response = await ac.get("/api/vaultwarden/ssh-keys/test-key", cookies=cookies)
+            
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        assert response.json()["key"] == mock_key
+        mock_get.assert_called_once_with("test-key")
+
+

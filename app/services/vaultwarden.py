@@ -410,3 +410,23 @@ def add_registered_host_to_ssh_key(name: str, host: str):
     except Exception as e:
         print(f"WARNING: Could not update Registered Hosts in Vaultwarden: {e}")
 
+def get_ssh_key_item(name: str):
+    """Fetches details of an existing SSH Key item by name."""
+    env = ensure_session()
+    item_id = get_item_by_name(name, item_type=5)
+    if not item_id:
+        raise Exception(f"SSH Key item '{name}' not found in vault.")
+        
+    current_item_str = run_bw_command(["get", "item", item_id], env=env)
+    item = json.loads(current_item_str)
+    
+    ssh_key_data = item.get("sshKey", {})
+    return {
+        "name": name,
+        "private_key": ssh_key_data.get("privateKey", ""),
+        "public_key": ssh_key_data.get("publicKey", ""),
+        "fingerprint": ssh_key_data.get("keyFingerprint", ""),
+        "registered_hosts": next((f.get("value") for f in item.get("fields", []) if f.get("name") == "Registered Hosts"), "")
+    }
+
+
