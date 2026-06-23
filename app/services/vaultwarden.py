@@ -177,7 +177,7 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, fingerprin
             item["sshKey"] = {
                 "privateKey": private_key, 
                 "publicKey": public_key,
-                "fingerprint": fingerprint
+                "keyFingerprint": fingerprint
             }
             if folder_id: item["folderId"] = folder_id
             
@@ -198,7 +198,7 @@ def create_ssh_key_item(name: str, private_key: str, public_key: str, fingerprin
             "sshKey": {
                 "privateKey": private_key,
                 "publicKey": public_key,
-                "fingerprint": fingerprint
+                "keyFingerprint": fingerprint
             }
         }
     
