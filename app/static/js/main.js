@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("QuickCreds Terminal Online");
     checkConnectivity();
     fetchLiteLLMOptions();
+    fetchExistingKeys();
 });
 
 let lastGeneratedSSH = null;
@@ -407,6 +408,7 @@ async function syncSSH() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Transmission failed');
         showToast("Encrypted and stored in Vaultwarden");
+        fetchExistingKeys();
         document.getElementById('ssh-result').innerHTML = `
             <div class="bg-teal/10 border border-teal/30 rounded-3xl p-10 mt-10">
                 <p class="text-teal font-black text-xs uppercase tracking-[0.2em] flex items-center"><span class="mr-3 text-lg">✅</span> Vault Transmission Complete</p>
