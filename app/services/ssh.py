@@ -48,14 +48,27 @@ def push_ssh_key_to_host(host: str, username: str, public_key: str, password: st
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         ssh.connect(hostname=host, port=port, username=username, password=password, timeout=10)
-        # Escaping single quotes in public_key to avoid shell injection
+        # Attempt Linux command first
         escaped_key = public_key.replace("'", "'\\''")
-        cmd = f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{escaped_key.strip()}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-        stdin, stdout, stderr = ssh.exec_command(cmd)
+        linux_cmd = f"mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '{escaped_key.strip()}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+        stdin, stdout, stderr = ssh.exec_command(linux_cmd)
         exit_status = stdout.channel.recv_exit_status()
+        
         if exit_status != 0:
             error_msg = stderr.read().decode().strip()
-            raise Exception(f"SSH command failed with exit status {exit_status}: {error_msg}")
+            # Check if this might be a Windows host
+            if "syntax of the command is incorrect" in error_msg or "not recognized" in error_msg:
+                # Attempt Windows PowerShell command
+                # Use double quotes for PowerShell string and escape them properly
+                win_key = public_key.strip().replace("'", "''")
+                win_cmd = f'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Force -Path $env:USERPROFILE\\.ssh; Add-Content -Force -Path $env:USERPROFILE\\.ssh\\authorized_keys -Value \'{win_key}\'"'
+                stdin, stdout, stderr = ssh.exec_command(win_cmd)
+                win_exit = stdout.channel.recv_exit_status()
+                if win_exit != 0:
+                    win_error = stderr.read().decode().strip()
+                    raise Exception(f"SSH command failed on Windows with exit status {win_exit}: {win_error}")
+            else:
+                raise Exception(f"SSH command failed with exit status {exit_status}: {error_msg}")
     except Exception as e:
         raise Exception(f"Failed to connect or push key: {str(e)}")
     finally:
