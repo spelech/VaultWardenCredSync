@@ -4,7 +4,96 @@ import os
 import tempfile
 from datetime import datetime
 from typing import List, Dict
+import httpx
+import time
 from app.database import get_secret, set_secret
+
+class BitwardenDaemon:
+    _process = None
+    _port = 8087
+    _host = "127.0.0.1"
+
+    @classmethod
+    def get_url(cls, path: str = "") -> str:
+        return f"http://{cls._host}:{cls._port}{path}"
+
+    @classmethod
+    def is_running(cls) -> bool:
+        return cls._process is not None and cls._process.poll() is None
+
+    @classmethod
+    def start(cls):
+        if cls.is_running():
+            return
+        
+        print(f"INFO: Starting Bitwarden daemon on {cls._host}:{cls._port}...")
+        env = os.environ.copy()
+        # Add local NVM path to env just in case it is installed under a custom node setup
+        env["PATH"] = "/home/steve/.nvm/versions/node/v22.17.0/bin:" + env.get("PATH", "")
+        
+        cls._process = subprocess.Popen(
+            ["bw", "serve", "--port", str(cls._port), "--hostname", cls._host],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        # Give it a small moment to start up
+        time.sleep(1.5)
+        
+    @classmethod
+    def stop(cls):
+        if cls.is_running():
+            print("INFO: Stopping Bitwarden daemon...")
+            cls._process.terminate()
+            cls._process.wait()
+            cls._process = None
+
+    @classmethod
+    def get_status(cls) -> str:
+        """Returns 'locked', 'unlocked', or 'stopped'."""
+        if not cls.is_running():
+            return "stopped"
+        try:
+            r = httpx.get(cls.get_url("/status"), timeout=2.0)
+            if r.status_code == 200:
+                data = r.json()
+                return data.get("data", {}).get("template", {}).get("status", "locked")
+        except Exception as e:
+            print(f"WARNING: Failed to get Bitwarden daemon status: {e}")
+        return "locked"
+
+    @classmethod
+    def unlock(cls, password: str) -> bool:
+        if not cls.is_running():
+            cls.start()
+        try:
+            print("INFO: Unlocking Bitwarden vault via daemon API...")
+            r = httpx.post(cls.get_url("/unlock"), json={"password": password}, timeout=10.0)
+            if r.status_code == 200:
+                data = r.json()
+                if data.get("success"):
+                    session_key = data.get("data", {}).get("raw")
+                    if session_key:
+                        set_secret("BW_SESSION", session_key)
+                    return True
+        except Exception as e:
+            print(f"ERROR: Failed to unlock vault via daemon API: {e}")
+        return False
+
+    @classmethod
+    def ensure_ready(cls):
+        """Ensures the daemon is running and unlocked."""
+        if not cls.is_running():
+            cls.start()
+        
+        status = cls.get_status()
+        if status == "locked":
+            password = get_secret("VAULTWARDEN_PASSWORD")
+            if password:
+                cls.unlock(password)
+            else:
+                raise Exception("Bitwarden vault is locked and password is not configured.")
 
 def get_vw_env():
     session = get_secret("BW_SESSION")
@@ -16,65 +105,50 @@ def get_vw_env():
 def initialize_vaultwarden_session(url: str, client_id: str, client_secret: str, password: str) -> str:
     """Logs into Vaultwarden and unlocks the vault to return a session key."""
     env = os.environ.copy()
+    env["PATH"] = "/home/steve/.nvm/versions/node/v22.17.0/bin:" + env.get("PATH", "")
     
-    # 1. Ensure we are logged out first to avoid session conflicts
+    # 1. Ensure we stop the daemon first to avoid lock/session conflicts on the DB
+    BitwardenDaemon.stop()
+    
+    # 2. Ensure we are logged out first to avoid session conflicts
     subprocess.run(["bw", "logout"], env=env, capture_output=True)
     
-    # 2. Config Server
+    # 3. Config Server
     subprocess.run(["bw", "config", "server", url], env=env, capture_output=True)
     
-    # 3. Login via API keys
+    # 4. Login via API keys
     env["BW_CLIENTID"] = client_id
     env["BW_CLIENTSECRET"] = client_secret
     subprocess.run(["bw", "login", "--apikey"], env=env, capture_output=True, text=True)
     
-    # 4. Unlock with password
+    # 5. Unlock with password
     unlock_proc = subprocess.run(["bw", "unlock", password, "--raw"], env=env, capture_output=True, text=True)
     if unlock_proc.returncode != 0:
         error_msg = unlock_proc.stderr if unlock_proc.stderr else "Unknown unlock failure"
         raise Exception(f"Failed to unlock Vaultwarden: {error_msg}")
         
     session_token = unlock_proc.stdout.strip()
+    
+    # Start the daemon back up and unlock it with the password
+    BitwardenDaemon.start()
+    BitwardenDaemon.unlock(password)
+    
     return session_token
 
 def ensure_session():
     """Checks if current session is valid, if not, attempts to re-authenticate."""
-    env = get_vw_env()
-    
-    # Test session with a simple command
-    if env.get("BW_SESSION"):
-        test_proc = subprocess.run(["bw", "list", "folders"], env=env, capture_output=True, text=True)
-        if test_proc.returncode == 0:
-            return env
-
-    # Session invalid or missing, attempt full re-auth
-    print("DEBUG: Vaultwarden session invalid or missing. Attempting auto-recovery...")
-    url = get_secret("VAULTWARDEN_URL")
-    client_id = get_secret("VAULTWARDEN_CLIENT_ID")
-    client_secret = get_secret("VAULTWARDEN_CLIENT_SECRET")
-    password = get_secret("VAULTWARDEN_PASSWORD")
-    
-    if not all([url, client_id, client_secret, password]):
-        raise Exception("Vaultwarden session expired and credentials missing for recovery. Please re-run setup.")
-        
-    try:
-        new_session = initialize_vaultwarden_session(url, client_id, client_secret, password)
-        set_secret("BW_SESSION", new_session)
-        env = os.environ.copy()
-        env["BW_SESSION"] = new_session
-        return env
-    except Exception as e:
-        print(f"ERROR: Vaultwarden recovery failed: {e}")
-        raise e
+    BitwardenDaemon.ensure_ready()
+    return {}
 
 def run_bw_command(cmd_list, env=None):
-    """Run a Bitwarden CLI command and return JSON."""
+    """Fallback to run a Bitwarden CLI command directly."""
     if not env:
-        env = ensure_session()
-        
-    # OPTIMIZATION: Removed redundant 'bw config server' call here.
-    # It adds ~1s latency and is already handled during setup/session initialization.
-        
+        BitwardenDaemon.ensure_ready()
+        session = get_secret("BW_SESSION")
+        env = os.environ.copy()
+        env["PATH"] = "/home/steve/.nvm/versions/node/v22.17.0/bin:" + env.get("PATH", "")
+        if session:
+            env["BW_SESSION"] = session
     result = subprocess.run(["bw"] + cmd_list, env=env, capture_output=True, text=True)
     if result.returncode != 0:
         error_msg = f"bw command {cmd_list} failed with exit code {result.returncode}. Stderr: {result.stderr}"
@@ -84,37 +158,44 @@ def run_bw_command(cmd_list, env=None):
 
 def get_folders():
     """Fetch all folders from Vaultwarden."""
-    env = ensure_session()
+    BitwardenDaemon.ensure_ready()
     
     # Run sync to ensure latest folders
-    subprocess.run(["bw", "sync"], env=env, capture_output=True)
-    
-    folders_str = run_bw_command(["list", "folders"], env=env)
-    return json.loads(folders_str)
+    try:
+        httpx.post(BitwardenDaemon.get_url("/sync"), timeout=15.0)
+    except Exception as e:
+        print(f"WARNING: Sync failed: {e}")
+        
+    r = httpx.get(BitwardenDaemon.get_url("/list/object/folders"), timeout=10.0)
+    if r.status_code != 200:
+        raise Exception(f"Failed to fetch folders: {r.text}")
+    return r.json().get("data", {}).get("data", [])
 
 def get_existing_ssh_keys():
     """Fetch all native SSH Key items from Vaultwarden."""
-    env = ensure_session()
+    BitwardenDaemon.ensure_ready()
     
-    # List items with type 5
-    items_str = run_bw_command(["list", "items", "--search", ""], env=env)
-    items = json.loads(items_str)
+    r = httpx.get(BitwardenDaemon.get_url("/list/object/items"), timeout=10.0)
+    if r.status_code != 200:
+        raise Exception(f"Failed to fetch items: {r.text}")
+    items = r.json().get("data", {}).get("data", [])
     return [i.get("name") for i in items if i.get("type") == 5]
 
 def get_litellm_keys_from_vault():
     """Fetch all LiteLLM keys stored in the vault."""
-    env = ensure_session()
+    BitwardenDaemon.ensure_ready()
     folder_id = get_secret("LITELLM_FOLDER_ID")
     
-    cmd = ["list", "items"]
-    if folder_id:
-        cmd += ["--folderid", folder_id]
-    
-    items_str = run_bw_command(cmd, env=env)
-    items = json.loads(items_str)
+    url = BitwardenDaemon.get_url("/list/object/items")
+    r = httpx.get(url, timeout=10.0)
+    if r.status_code != 200:
+        raise Exception(f"Failed to fetch items: {r.text}")
+    items = r.json().get("data", {}).get("data", [])
     
     keys = []
     for item in items:
+        if folder_id and item.get("folderId") != folder_id:
+            continue
         # Support both Login (1) and Secure Note (2) types for LiteLLM keys
         if item.get("type") in [1, 2] and item.get("name", "").startswith("LiteLLM:"):
             fields = item.get("fields", [])
@@ -145,10 +226,13 @@ def get_litellm_keys_from_vault():
 
 def get_item_by_name(name: str, item_type: int = None):
     """Finds an item by exact name and optional type, returning its ID."""
-    env = ensure_session()
+    BitwardenDaemon.ensure_ready()
     
-    items_str = run_bw_command(["list", "items", "--search", name], env=env)
-    items = json.loads(items_str)
+    url = BitwardenDaemon.get_url("/list/object/items")
+    r = httpx.get(url, params={"search": name}, timeout=10.0)
+    if r.status_code != 200:
+        raise Exception(f"Failed to search items: {r.text}")
+    items = r.json().get("data", {}).get("data", [])
     
     for item in items:
         if item.get("name") == name:
@@ -165,212 +249,173 @@ def add_audit_tags(fields: List[Dict]):
 
 def create_ssh_key_item(name: str, private_key: str, public_key: str, fingerprint: str, folder_id: str = None, item_id: str = None):
     """Creates or overwrites a native SSH Key item (type 5) in Vaultwarden."""
-    env = ensure_session()
-
+    BitwardenDaemon.ensure_ready()
     fields = add_audit_tags([])
 
+    item = None
     if item_id:
         try:
-            current_item_str = run_bw_command(["get", "item", item_id], env=env)
-            item = json.loads(current_item_str)
-            item["name"] = name
-            item["sshKey"] = {
-                "privateKey": private_key, 
-                "publicKey": public_key,
-                "keyFingerprint": fingerprint
-            }
-            if folder_id: item["folderId"] = folder_id
-            
-            # Merge or replace audit fields
-            existing_fields = item.get("fields", [])
-            existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
-            item["fields"] = existing_fields + fields
-        except:
+            r = httpx.get(BitwardenDaemon.get_url(f"/object/item/{item_id}"), timeout=5.0)
+            if r.status_code == 200:
+                item = r.json().get("data")
+                item["name"] = name
+                item["sshKey"] = {
+                    "privateKey": private_key, 
+                    "publicKey": public_key,
+                    "keyFingerprint": fingerprint
+                }
+                if folder_id:
+                    item["folderId"] = folder_id
+                
+                # Merge or replace audit fields
+                existing_fields = item.get("fields", [])
+                existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
+                item["fields"] = existing_fields + fields
+        except Exception as e:
+            print(f"WARNING: Failed to fetch existing item {item_id} for update: {e}")
             item_id = None
 
-    if not item_id:
-        item = {
-            "type": 5,
-            "name": name,
-            "folderId": folder_id,
-            "notes": "",
-            "fields": fields,
-            "sshKey": {
-                "privateKey": private_key,
-                "publicKey": public_key,
-                "keyFingerprint": fingerprint
-            }
-        }
-    
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
-        json.dump(item, f)
-        temp_name = f.name
+    if not item:
+        r_temp = httpx.get(BitwardenDaemon.get_url("/object/template/item"), timeout=5.0)
+        if r_temp.status_code != 200:
+            raise Exception("Failed to retrieve item template from daemon")
+        item = r_temp.json().get("data", {}).get("template")
         
-    try:
-        with open(temp_name, 'r') as f:
-            encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
-            if encode_proc.returncode != 0:
-                raise Exception(f"bw encode failed: {encode_proc.stderr}")
-            encoded_str = encode_proc.stdout
-            
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
-            f_enc.write(encoded_str)
-            temp_enc_name = f_enc.name
-            
-        try:
-            with open(temp_enc_name, 'r') as f_enc_read:
-                cmd = ["create", "item"] if not item_id else ["edit", "item", item_id]
-                create_proc = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True)
-                if create_proc.returncode != 0:
-                    raise Exception(f"bw {cmd} failed: {create_proc.stderr}")
-                return json.loads(create_proc.stdout)
-        finally:
-            if os.path.exists(temp_enc_name):
-                os.remove(temp_enc_name)
-    finally:
-        if os.path.exists(temp_name):
-            os.remove(temp_name)
+        item["type"] = 5
+        item["name"] = name
+        if folder_id:
+            item["folderId"] = folder_id
+        item["fields"] = fields
+        item["sshKey"] = {
+            "privateKey": private_key,
+            "publicKey": public_key,
+            "keyFingerprint": fingerprint
+        }
+
+    if item_id:
+        url = BitwardenDaemon.get_url(f"/object/item/{item_id}")
+        r = httpx.put(url, json=item, timeout=10.0)
+    else:
+        url = BitwardenDaemon.get_url("/object/item")
+        r = httpx.post(url, json=item, timeout=10.0)
+
+    if r.status_code != 200:
+        raise Exception(f"Failed to save SSH Key item via daemon: {r.text}")
+    return r.json().get("data")
 
 def create_secure_note_item(name: str, fields: List[Dict] = None, folder_id: str = None, item_id: str = None):
     """Creates or overwrites a Secure Note item (type 2) in Vaultwarden."""
-    env = ensure_session()
-    
+    BitwardenDaemon.ensure_ready()
     audit_fields = add_audit_tags([])
-    if fields is None: fields = []
-    
+    if fields is None:
+        fields = []
+
+    item = None
     if item_id:
         try:
-            current_item_str = run_bw_command(["get", "item", item_id], env=env)
-            item = json.loads(current_item_str)
-            item["name"] = name
-            
-            existing_fields = item.get("fields", [])
-            existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
-            item["fields"] = fields + existing_fields + audit_fields
-            
-            if folder_id: item["folderId"] = folder_id
-        except:
+            r = httpx.get(BitwardenDaemon.get_url(f"/object/item/{item_id}"), timeout=5.0)
+            if r.status_code == 200:
+                item = r.json().get("data")
+                item["name"] = name
+                existing_fields = item.get("fields", [])
+                existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
+                item["fields"] = fields + existing_fields + audit_fields
+                if folder_id:
+                    item["folderId"] = folder_id
+        except Exception as e:
+            print(f"WARNING: Failed to fetch existing secure note {item_id} for update: {e}")
             item_id = None
 
-    if not item_id:
-        template_str = run_bw_command(["get", "template", "item"], env=env)
-        item = json.loads(template_str)
-        item["type"] = 2 # 2 = Secure Note
+    if not item:
+        r_temp = httpx.get(BitwardenDaemon.get_url("/object/template/item"), timeout=5.0)
+        item = r_temp.json().get("data", {}).get("template")
+        item["type"] = 2
         item["name"] = name
-        item["notes"] = ""
+        
+        r_sn = httpx.get(BitwardenDaemon.get_url("/object/template/item.secureNote"), timeout=5.0)
+        item["secureNote"] = r_sn.json().get("data", {}).get("template")
         item["fields"] = fields + audit_fields
-        if folder_id: item["folderId"] = folder_id
-        
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
-        json.dump(item, f)
-        temp_name = f.name
-        
-    try:
-        with open(temp_name, 'r') as f:
-            encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
-            if encode_proc.returncode != 0:
-                raise Exception(f"bw encode failed: {encode_proc.stderr}")
-            encoded_str = encode_proc.stdout
-            
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
-            f_enc.write(encoded_str)
-            temp_enc_name = f_enc.name
-            
-        try:
-            with open(temp_enc_name, 'r') as f_enc_read:
-                cmd = ["create", "item"] if not item_id else ["edit", "item", item_id]
-                create_proc = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True)
-                if create_proc.returncode != 0:
-                    raise Exception(f"bw {cmd} failed: {create_proc.stderr}")
-                return json.loads(create_proc.stdout)
-        finally:
-            if os.path.exists(temp_enc_name):
-                os.remove(temp_enc_name)
-    finally:
-        if os.path.exists(temp_name):
-            os.remove(temp_name)
+        if folder_id:
+            item["folderId"] = folder_id
+
+    if item_id:
+        url = BitwardenDaemon.get_url(f"/object/item/{item_id}")
+        r = httpx.put(url, json=item, timeout=10.0)
+    else:
+        url = BitwardenDaemon.get_url("/object/item")
+        r = httpx.post(url, json=item, timeout=10.0)
+
+    if r.status_code != 200:
+        raise Exception(f"Failed to save Secure Note item via daemon: {r.text}")
+    return r.json().get("data")
 
 def create_secure_login(name: str, username: str = None, fields: List[Dict] = None, folder_id: str = None, item_id: str = None):
     """Creates or overwrites a login item in Vaultwarden."""
-    env = ensure_session()
-    
+    BitwardenDaemon.ensure_ready()
     audit_fields = add_audit_tags([])
-    if fields is None: fields = []
-    
+    if fields is None:
+        fields = []
+
+    item = None
     if item_id:
         try:
-            current_item_str = run_bw_command(["get", "item", item_id], env=env)
-            item = json.loads(current_item_str)
-            item["name"] = name
-            
-            # Merge fields
-            existing_fields = item.get("fields", [])
-            # Filter out existing audit fields to avoid duplicates on overwrite
-            existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
-            item["fields"] = fields + existing_fields + audit_fields
-            
-            if folder_id: item["folderId"] = folder_id
-            if username:
-                if "login" not in item: item["login"] = {}
-                item["login"]["username"] = username
-        except:
+            r = httpx.get(BitwardenDaemon.get_url(f"/object/item/{item_id}"), timeout=5.0)
+            if r.status_code == 200:
+                item = r.json().get("data")
+                item["name"] = name
+                existing_fields = item.get("fields", [])
+                existing_fields = [f for f in existing_fields if f.get("name") not in ["Provisioned By", "Provision Date"]]
+                item["fields"] = fields + existing_fields + audit_fields
+                if folder_id:
+                    item["folderId"] = folder_id
+                if username:
+                    if "login" not in item or not item["login"]:
+                        r_login = httpx.get(BitwardenDaemon.get_url("/object/template/item.login"), timeout=5.0)
+                        item["login"] = r_login.json().get("data", {}).get("template")
+                    item["login"]["username"] = username
+        except Exception as e:
+            print(f"WARNING: Failed to fetch existing login {item_id} for update: {e}")
             item_id = None
 
-    if not item_id:
-        template_str = run_bw_command(["get", "template", "item"], env=env)
-        item = json.loads(template_str)
-        item["type"] = 1 # 1 = Login
+    if not item:
+        r_temp = httpx.get(BitwardenDaemon.get_url("/object/template/item"), timeout=5.0)
+        item = r_temp.json().get("data", {}).get("template")
+        item["type"] = 1
         item["name"] = name
-        item["notes"] = ""
-        login_template_str = run_bw_command(["get", "template", "item.login"], env=env)
-        login_item = json.loads(login_template_str)
-        if username: login_item["username"] = username
-        item["login"] = login_item
+        
+        r_login = httpx.get(BitwardenDaemon.get_url("/object/template/item.login"), timeout=5.0)
+        item["login"] = r_login.json().get("data", {}).get("template")
+        if username:
+            item["login"]["username"] = username
         item["fields"] = fields + audit_fields
-        if folder_id: item["folderId"] = folder_id
-        
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
-        json.dump(item, f)
-        temp_name = f.name
-        
-    try:
-        with open(temp_name, 'r') as f:
-            encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
-            if encode_proc.returncode != 0:
-                raise Exception(f"bw encode failed: {encode_proc.stderr}")
-            encoded_str = encode_proc.stdout
-            
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
-            f_enc.write(encoded_str)
-            temp_enc_name = f_enc.name
-            
-        try:
-            with open(temp_enc_name, 'r') as f_enc_read:
-                cmd = ["create", "item"] if not item_id else ["edit", "item", item_id]
-                create_proc = subprocess.run(["bw"] + cmd, stdin=f_enc_read, env=env, capture_output=True, text=True)
-                if create_proc.returncode != 0:
-                    raise Exception(f"bw {cmd} failed: {create_proc.stderr}")
-                return json.loads(create_proc.stdout)
-        finally:
-            if os.path.exists(temp_enc_name):
-                os.remove(temp_enc_name)
-    finally:
-        if os.path.exists(temp_name):
-            os.remove(temp_name)
+        if folder_id:
+            item["folderId"] = folder_id
+
+    if item_id:
+        url = BitwardenDaemon.get_url(f"/object/item/{item_id}")
+        r = httpx.put(url, json=item, timeout=10.0)
+    else:
+        url = BitwardenDaemon.get_url("/object/item")
+        r = httpx.post(url, json=item, timeout=10.0)
+
+    if r.status_code != 200:
+        raise Exception(f"Failed to save Login item via daemon: {r.text}")
+    return r.json().get("data")
 
 def add_registered_host_to_ssh_key(name: str, host: str):
     """Appends a host to the 'Registered Hosts' custom field of the SSH key item."""
-    env = ensure_session()
+    BitwardenDaemon.ensure_ready()
     item_id = get_item_by_name(name, item_type=5)
     if not item_id:
         return
         
     try:
-        current_item_str = run_bw_command(["get", "item", item_id], env=env)
-        item = json.loads(current_item_str)
+        r = httpx.get(BitwardenDaemon.get_url(f"/object/item/{item_id}"), timeout=5.0)
+        if r.status_code != 200:
+            return
+        item = r.json().get("data")
         
         fields = item.get("fields", [])
-        # Find if 'Registered Hosts' already exists
         registered_field = None
         for f in fields:
             if f.get("name") == "Registered Hosts":
@@ -387,38 +432,22 @@ def add_registered_host_to_ssh_key(name: str, host: str):
             
         item["fields"] = fields
         
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
-            json.dump(item, f)
-            temp_name = f.name
-            
-        try:
-            with open(temp_name, 'r') as f:
-                encode_proc = subprocess.run(["bw", "encode"], stdin=f, env=env, capture_output=True, text=True)
-                encoded_str = encode_proc.stdout
-                
-            with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f_enc:
-                f_enc.write(encoded_str)
-                temp_enc_name = f_enc.name
-                
-            try:
-                with open(temp_enc_name, 'r') as f_enc_read:
-                    subprocess.run(["bw", "edit", "item", item_id], stdin=f_enc_read, env=env, capture_output=True)
-            finally:
-                os.remove(temp_enc_name)
-        finally:
-            os.remove(temp_name)
+        url = BitwardenDaemon.get_url(f"/object/item/{item_id}")
+        httpx.put(url, json=item, timeout=10.0)
     except Exception as e:
         print(f"WARNING: Could not update Registered Hosts in Vaultwarden: {e}")
 
 def get_ssh_key_item(name: str):
     """Fetches details of an existing SSH Key item by name."""
-    env = ensure_session()
+    BitwardenDaemon.ensure_ready()
     item_id = get_item_by_name(name, item_type=5)
     if not item_id:
         raise Exception(f"SSH Key item '{name}' not found in vault.")
         
-    current_item_str = run_bw_command(["get", "item", item_id], env=env)
-    item = json.loads(current_item_str)
+    r = httpx.get(BitwardenDaemon.get_url(f"/object/item/{item_id}"), timeout=5.0)
+    if r.status_code != 200:
+        raise Exception(f"Failed to fetch SSH Key item: {r.text}")
+    item = r.json().get("data")
     
     ssh_key_data = item.get("sshKey", {})
     return {
@@ -428,5 +457,6 @@ def get_ssh_key_item(name: str):
         "fingerprint": ssh_key_data.get("keyFingerprint", ""),
         "registered_hosts": next((f.get("value") for f in item.get("fields", []) if f.get("name") == "Registered Hosts"), "")
     }
+
 
 
