@@ -52,8 +52,29 @@ async def reconcile_litellm_keys():
 
 @app.on_event("startup")
 async def startup_event():
+    # Start the Bitwarden CLI daemon
+    try:
+        from app.services.vaultwarden import BitwardenDaemon
+        if is_setup_complete():
+            print("INFO: Initializing Bitwarden daemon during startup...")
+            BitwardenDaemon.start()
+            password = get_secret("VAULTWARDEN_PASSWORD")
+            if password:
+                BitwardenDaemon.unlock(password)
+    except Exception as e:
+        print(f"ERROR: Failed to initialize Bitwarden daemon: {e}")
+
     # Start reconciliation in the background
     asyncio.create_task(reconcile_litellm_keys())
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Stop the Bitwarden CLI daemon
+    try:
+        from app.services.vaultwarden import BitwardenDaemon
+        BitwardenDaemon.stop()
+    except Exception as e:
+        print(f"ERROR: Failed to stop Bitwarden daemon: {e}")
 
 # Setup Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
