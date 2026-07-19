@@ -22,9 +22,34 @@ class BitwardenDaemon:
         return cls._process is not None and cls._process.poll() is None
 
     @classmethod
+    def ensure_authenticated(cls):
+        env = os.environ.copy()
+        env["PATH"] = "/home/steve/.nvm/versions/node/v22.17.0/bin:" + env.get("PATH", "")
+        status_proc = subprocess.run(["bw", "status"], env=env, capture_output=True, text=True)
+        if status_proc.returncode == 0:
+            try:
+                status_data = json.loads(status_proc.stdout)
+                status = status_data.get("status")
+                if status == "unauthenticated":
+                    url = get_secret("VAULTWARDEN_URL")
+                    client_id = get_secret("VAULTWARDEN_CLIENT_ID")
+                    client_secret = get_secret("VAULTWARDEN_CLIENT_SECRET")
+                    if url and client_id and client_secret:
+                        print("INFO: Bitwarden CLI is unauthenticated. Logging in...")
+                        subprocess.run(["bw", "config", "server", url], env=env, capture_output=True)
+                        login_env = env.copy()
+                        login_env["BW_CLIENTID"] = client_id
+                        login_env["BW_CLIENTSECRET"] = client_secret
+                        subprocess.run(["bw", "login", "--apikey"], env=login_env, capture_output=True)
+            except Exception as e:
+                print(f"WARNING: Failed to check/perform Bitwarden authentication: {e}")
+
+    @classmethod
     def start(cls):
         if cls.is_running():
             return
+        
+        cls.ensure_authenticated()
         
         print(f"INFO: Starting Bitwarden daemon on {cls._host}:{cls._port}...")
         env = os.environ.copy()
