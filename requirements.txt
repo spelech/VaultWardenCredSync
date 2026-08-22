@@ -11,3 +11,5 @@ pytest-asyncio
 bcrypt
 slowapi
 paramiko
+fastmcp>=3.0.0
+mcp>=1.3.0

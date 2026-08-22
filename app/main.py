@@ -18,6 +18,7 @@ from app.services.ssh import generate_ssh_keypair, push_ssh_key_to_host
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys, import_litellm_key
 from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault, add_registered_host_to_ssh_key, get_ssh_key_item
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
+from app.mcp_server import mcp
 
 app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
 
@@ -91,6 +92,10 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# Mount FastMCP endpoints
+app.mount("/mcp", mcp.http_app(path="/", transport="http"))
+app.mount("/sse", mcp.http_app(path="/", transport="sse"))
+
 # Setup templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
@@ -112,15 +117,15 @@ class SSHSyncRequest(BaseModel):
     private_key: str
     public_key: str
     fingerprint: str
-    overwrite: Optional[bool] = False
+    comment: Optional[str] = ""
 
 class SSHPushRequest(BaseModel):
+    name: str
     host: str
     username: str
     public_key: str
     password: Optional[str] = None
     port: Optional[int] = 22
-    name: Optional[str] = None
 
 class LiteLLMGenerateRequest(BaseModel):
     key_alias: str
@@ -174,8 +179,8 @@ class LoginRequest(BaseModel):
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
     
-    # 1. Always allow static files
-    if path.startswith("/static"):
+    # 1. Always allow static files and MCP/OIDC endpoints
+    if path.startswith("/static") or path.startswith("/mcp") or path.startswith("/sse") or path.startswith("/.well-known"):
         return await call_next(request)
         
     # 2. Check Setup
