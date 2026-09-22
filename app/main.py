@@ -117,15 +117,16 @@ class SSHSyncRequest(BaseModel):
     private_key: str
     public_key: str
     fingerprint: str
+    overwrite: Optional[bool] = False
     comment: Optional[str] = ""
 
 class SSHPushRequest(BaseModel):
-    name: str
     host: str
     username: str
     public_key: str
     password: Optional[str] = None
     port: Optional[int] = 22
+    name: Optional[str] = None
 
 class LiteLLMGenerateRequest(BaseModel):
     key_alias: str

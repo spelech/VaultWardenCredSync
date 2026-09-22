@@ -80,4 +80,64 @@ async def test_api_get_ssh_key_details():
         assert response.json()["key"] == mock_key
         mock_get.assert_called_once_with("test-key")
 
+@pytest.mark.asyncio
+async def test_api_sync_ssh_new():
+    with patch("app.main.is_setup_complete", return_value=True), \
+         patch("app.main.get_secret", side_effect=lambda k: "folder-123" if k == "SSH_FOLDER_ID" else "mock-session-id"), \
+         patch("app.main.create_ssh_key_item", return_value={"id": "new-item-id"}) as mock_create:
+        
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
+            cookies = {"portal_session": "mock-session-id"}
+            payload = {
+                "name": "my-key",
+                "private_key": "priv-data",
+                "public_key": "pub-data",
+                "fingerprint": "SHA256:xyz",
+                "overwrite": False
+            }
+            response = await ac.post("/api/sync-ssh", json=payload, cookies=cookies)
+            
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        assert response.json()["message"] == "SSH Key synced."
+        mock_create.assert_called_once_with(
+            name="my-key",
+            private_key="priv-data",
+            public_key="pub-data",
+            fingerprint="SHA256:xyz",
+            folder_id="folder-123",
+            item_id=None
+        )
+
+@pytest.mark.asyncio
+async def test_api_sync_ssh_overwrite():
+    with patch("app.main.is_setup_complete", return_value=True), \
+         patch("app.main.get_secret", side_effect=lambda k: "folder-123" if k == "SSH_FOLDER_ID" else "mock-session-id"), \
+         patch("app.main.get_item_by_name", return_value="existing-item-123") as mock_get_item, \
+         patch("app.main.create_ssh_key_item", return_value={"id": "existing-item-123"}) as mock_create:
+        
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac:
+            cookies = {"portal_session": "mock-session-id"}
+            payload = {
+                "name": "my-key",
+                "private_key": "priv-data",
+                "public_key": "pub-data",
+                "fingerprint": "SHA256:xyz",
+                "overwrite": True
+            }
+            response = await ac.post("/api/sync-ssh", json=payload, cookies=cookies)
+            
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        assert response.json()["message"] == "SSH Key synced (overwritten)."
+        mock_get_item.assert_called_once_with("my-key", item_type=5)
+        mock_create.assert_called_once_with(
+            name="my-key",
+            private_key="priv-data",
+            public_key="pub-data",
+            fingerprint="SHA256:xyz",
+            folder_id="folder-123",
+            item_id="existing-item-123"
+        )
+
 
