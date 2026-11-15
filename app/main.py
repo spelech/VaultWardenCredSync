@@ -17,10 +17,29 @@ from slowapi.errors import RateLimitExceeded
 from app.services.ssh import generate_ssh_keypair, push_ssh_key_to_host
 from app.services.litellm import generate_virtual_key, get_litellm_teams, get_litellm_users, get_litellm_models, get_litellm_keys, import_litellm_key
 from app.services.vaultwarden import create_secure_login, create_secure_note_item, initialize_vaultwarden_session, get_folders, create_ssh_key_item, get_existing_ssh_keys, get_item_by_name, get_litellm_keys_from_vault, add_registered_host_to_ssh_key, get_ssh_key_item
+from contextlib import asynccontextmanager
 from app.database import is_setup_complete, set_secret, get_secret, hash_password, verify_password
 from app.mcp_server import mcp
 
-app = FastAPI(title="QuickCreds Terminal", version="0.1.0")
+mcp_http_app = mcp.http_app(path="/mcp", transport="http")
+mcp_sse_app = mcp.http_app(path="/", transport="sse")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with mcp_http_app.lifespan(app):
+        async with mcp_sse_app.lifespan(app):
+            try:
+                yield
+            finally:
+                try:
+                    from app.services.vaultwarden import BitwardenDaemon
+                    BitwardenDaemon.stop()
+                except Exception as e:
+                    print(f"ERROR: Failed to stop Bitwarden daemon: {e}")
+
+
+app = FastAPI(title="QuickCreds Terminal", version="0.1.0", lifespan=lifespan)
 
 # Background Sync Task
 async def reconcile_litellm_keys():
@@ -51,34 +70,6 @@ async def reconcile_litellm_keys():
         # Run every 30 minutes
         await asyncio.sleep(1800)
 
-@app.on_event("startup")
-async def startup_event():
-    # Bitwarden CLI daemon will be started on-demand when service calls are made
-    # to avoid having the API daemon running headlessly when not needed.
-    # try:
-    #     from app.services.vaultwarden import BitwardenDaemon
-    #     if is_setup_complete():
-    #         print("INFO: Initializing Bitwarden daemon during startup...")
-    #         BitwardenDaemon.start()
-    #         password = get_secret("VAULTWARDEN_PASSWORD")
-    #         if password:
-    #             BitwardenDaemon.unlock(password)
-    # except Exception as e:
-    #     print(f"ERROR: Failed to initialize Bitwarden daemon: {e}")
-
-    # Reconciliation task is disabled to prevent unnecessary background decryption/unlocking
-    # asyncio.create_task(reconcile_litellm_keys())
-    pass
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    # Stop the Bitwarden CLI daemon
-    try:
-        from app.services.vaultwarden import BitwardenDaemon
-        BitwardenDaemon.stop()
-    except Exception as e:
-        print(f"ERROR: Failed to stop Bitwarden daemon: {e}")
-
 # Setup Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -92,9 +83,8 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# Mount FastMCP endpoints
-app.mount("/mcp", mcp.http_app(path="/", transport="http"))
-app.mount("/sse", mcp.http_app(path="/", transport="sse"))
+# Mount FastMCP SSE endpoint (Streamable HTTP + OAuth routes are mounted at / below)
+app.mount("/sse", mcp_sse_app)
 
 # Setup templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -179,9 +169,19 @@ class LoginRequest(BaseModel):
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
-    
+
+    # Normalize /mcp/ -> /mcp and /sse -> /sse/ so neither issues a 307 redirect
+    if path == "/mcp/":
+        request.scope["path"] = "/mcp"
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = b"/mcp"
+    elif path == "/sse":
+        request.scope["path"] = "/sse/"
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = b"/sse/"
+
     # 1. Always allow static files and MCP/OIDC endpoints
-    if path.startswith("/static") or path.startswith("/mcp") or path.startswith("/sse") or path.startswith("/.well-known"):
+    if path.startswith(("/static", "/mcp", "/sse", "/.well-known", "/authorize", "/token", "/register", "/consent")):
         return await call_next(request)
         
     # 2. Check Setup
@@ -457,3 +457,7 @@ async def api_resync_litellm(background_tasks: BackgroundTasks):
     except Exception as e:
         print(f"ERROR in api_resync_litellm: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Mount FastMCP Streamable HTTP (/mcp) and OAuth discovery/callback routes at root after FastAPI routes
+app.mount("/", mcp_http_app)

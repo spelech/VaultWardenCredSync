@@ -1,6 +1,8 @@
+import hmac
 import os
 from fastmcp import FastMCP
 from fastmcp.server.auth import OAuthProxy
+from fastmcp.server.auth.auth import AccessToken
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 from app.services.ssh import generate_ssh_keypair, push_ssh_key_to_host
@@ -17,13 +19,29 @@ token_verifier = JWTVerifier(
     audience="quickcreds-mcp"
 )
 
-auth = OAuthProxy(
+
+class GatewayOAuthProxy(OAuthProxy):
+    """OAuthProxy that also accepts a configured service Bearer key (MCP_API_KEY) for MCG."""
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        api_key = os.getenv("MCP_API_KEY", "").strip()
+        if api_key and hmac.compare_digest(token, api_key):
+            return AccessToken(
+                token=token,
+                client_id="mcg-gateway",
+                scopes=["mcp"],
+            )
+        return await super().verify_token(token)
+
+
+auth = GatewayOAuthProxy(
     upstream_authorization_endpoint=f"{EXTERNAL_OIDC_URL}/api/oidc/authorize",
     upstream_token_endpoint=f"{INTERNAL_OIDC_URL}/api/oidc/token",
     upstream_client_id=os.getenv("MCP_CLIENT_ID", "quickcreds-mcp"),
     upstream_client_secret=os.getenv("MCP_CLIENT_SECRET", "dummy-secret"), # Ensure safe fallback or require
     token_verifier=token_verifier,
     base_url="https://quickcreds.wileyriley.com",
+    redirect_path="/mcp/auth/callback",
 )
 
 mcp = FastMCP("QuickCreds", auth=auth)
